@@ -1,0 +1,55 @@
+[project]
+name = "champion-tatami-control"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "lyp1noff",email = "lyp1noff@gmail.com"}
+]
+readme = "README.md"
+requires-python = "^3.12"
+dependencies = [
+    "fastapi (>=0.116.1,<0.117.0)",
+    "uvicorn (>=0.35.0,<0.36.0)",
+    "asyncpg (>=0.30.0,<0.31.0)",
+    "sqlalchemy[asyncio] (>=2.0.42,<3.0.0)",
+    "dotenv (>=0.9.9,<0.10.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+black = "^25.1.0"
+isort = "^6.0.1"
+mypy = "^1.17.0"
+httpx = "^0.28.1"
+flake8 = "^7.3.0"
+pre-commit = "^4.2.0"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "."
+]
+
+[tool.poetry]
+package-mode = false
+
+[tool.black]
+line-length = 120
+target-version = ["py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+show_error_codes = true
+plugins = ["sqlalchemy.ext.mypy.plugin"]
+exclude = ["tests", "scripts", "alembic"]
