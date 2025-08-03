@@ -1,0 +1,137 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Tournament {
+  id          Int       @id @default(autoincrement())
+  externalId  Int       @unique
+  name        String
+  location    String
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  brackets    Bracket[]
+  outboxItems OutboxItem[]
+}
+
+model Bracket {
+  id           Int       @id @default(autoincrement())
+  externalId   Int       @unique
+  tournamentId Int
+  category     String
+  type         String
+  tatami       Int?
+  groupId      Int       @default(1)
+  startTime    String    @default("09:00")
+  status       String
+  displayName  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  matches      BracketMatch[]
+}
+
+model Athlete {
+  id          Int       @id @default(autoincrement())
+  externalId  Int       @unique
+  firstName   String
+  lastName    String
+  coachesLastName String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  matchesAsAthlete1 Match[] @relation("Athlete1")
+  matchesAsAthlete2 Match[] @relation("Athlete2")
+}
+
+model Match {
+  id            Int      @id @default(autoincrement())
+  externalId    String   @unique
+  athlete1Id    Int?
+  athlete2Id    Int?
+  winnerId      Int?
+  scoreAthlete1 Int?
+  scoreAthlete2 Int?
+  status        String   @default("not_started")
+  startedAt     DateTime?
+  endedAt       DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  athlete1      Athlete? @relation("Athlete1", fields: [athlete1Id], references: [id])
+  athlete2      Athlete? @relation("Athlete2", fields: [athlete2Id], references: [id])
+  bracketMatches BracketMatch[]
+
+  matchState    MatchState?   @relation("MatchToState")
+  outboxItems   OutboxItem[]
+}
+
+model BracketMatch {
+  id          Int      @id @default(autoincrement())
+  externalId  String   @unique
+  bracketId   Int
+  matchId     Int
+  roundNumber Int
+  position    Int
+  nextSlot    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  bracket     Bracket  @relation(fields: [bracketId], references: [id], onDelete: Cascade)
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([bracketId, matchId])
+}
+
+model OutboxItem {
+  id           Int      @id @default(autoincrement())
+  tournamentId Int?
+  matchId      Int?
+  endpoint     String   // e.g. "/matches/xxx/start"
+  method       String   // POST, PATCH, etc.
+  payload      String?  // JSON
+  status       String   @default("pending") // pending, delivered, failed
+  retryCount   Int      @default(0)
+  maxRetries   Int      @default(10)
+  error        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  match        Match?      @relation(fields: [matchId], references: [id], onDelete: Cascade)
+}
+
+model MatchState {
+  id             Int      @id @default(autoincrement())
+  matchId        Int      @unique
+  status         String   @default("idle")
+  startTimestamp DateTime?
+  pausedElapsed  Int      @default(0)
+  elapsed        Int      @default(0)
+  durationMs     Int      @default(60000)
+  score1         Int      @default(0)
+  score2         Int      @default(0)
+  shido1         Int      @default(0)
+  shido2         Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  match          Match    @relation("MatchToState", fields: [matchId], references: [id], onDelete: Cascade)
+}
+
+model GlobalSettings {
+  id                Int      @id @default(autoincrement())
+  key               String   @unique
+  value             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
