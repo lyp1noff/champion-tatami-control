@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.services.serialize import serialize_match
+from src.services.outbox import create_match_start_outbox, create_match_finish_outbox, create_match_scores_outbox
 from src.models import Match, BracketMatch
 from src.database import get_db
 from src.schemas import MatchSchema, UpdateMatchScoresSchema, FinishMatchSchema
@@ -50,6 +51,9 @@ async def start_match(match_id: str, db: AsyncSession = Depends(get_db)) -> dict
     match.status = "in_progress"
     match.started_at = datetime.now(timezone.utc)
 
+    # Create outbox entry for external API notification
+    await create_match_start_outbox(match, db)
+
     await db.commit()
 
     print(f"Starting match: {match_id}")
@@ -83,6 +87,11 @@ async def finish_match(match_id: str, finish_data: FinishMatchSchema, db: AsyncS
     match.winner_id = finish_data.winner_id
     match.status = "finished"
     match.ended_at = datetime.now(timezone.utc)
+
+    # Create outbox entry for external API notification
+    await create_match_finish_outbox(
+        match, finish_data.winner_id, finish_data.score_athlete1, finish_data.score_athlete2, db
+    )
 
     # Advance winner to next round in bracket
     bm_result = await db.execute(select(BracketMatch).where(BracketMatch.match_id == match.id))
@@ -140,6 +149,9 @@ async def update_match_scores(
 
     if scores_data.score_athlete2 is not None:
         match.score_athlete2 = scores_data.score_athlete2
+
+    # Create outbox entry for external API notification
+    await create_match_scores_outbox(match, db)
 
     await db.commit()
 
