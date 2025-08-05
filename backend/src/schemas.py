@@ -127,3 +127,9 @@ class UpdateMatchStateSchema(BaseModel):
 class UpdateMatchScoresSchema(BaseModel):
     score_athlete1: Optional[int] = None
     score_athlete2: Optional[int] = None
+
+
+class FinishMatchSchema(BaseModel):
+    score_athlete1: int
+    score_athlete2: int
+    winner_id: int
