@@ -4,16 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { TatamiState, useTatamiStore } from "@/store/tatami";
 import { sendTatamiMessage, onTatamiMessage } from "@/lib/tatami-bus";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { useParams } from "next/navigation";
+import { matchApi } from "@/lib/api";
+import { MatchInfo } from "./components/MatchInfo";
+import { TimerDisplay } from "./components/TimerDisplay";
+import { MatchControls } from "./components/MatchControls";
+import { FighterControls } from "./components/FighterControls";
+import { TimeAdjustment } from "./components/TimeAdjustment";
 
 export default function ManageTatami() {
   const { id: tatamiId, match_id } = useParams();
@@ -30,9 +27,10 @@ export default function ManageTatami() {
     currentMatch,
     setState,
     reset,
-    setMatch,
   } = useTatamiStore();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [timeAdjustInput, setTimeAdjustInput] = useState({ minutes: 0, seconds: 0, milliseconds: 0 });
+  const [showTimeAdjustDialog, setShowTimeAdjustDialog] = useState(false);
 
   useEffect(() => {
     loadMatchData(match_id as string);
@@ -40,8 +38,7 @@ export default function ManageTatami() {
 
   const loadMatchData = async (matchId: string) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/matches/${matchId}`);
-      const match = await response.json();
+      const match = await matchApi.getMatch(matchId);
       setState({
         currentMatch: match,
         // Only set scores if they exist in the match data, otherwise preserve current values
@@ -69,16 +66,8 @@ export default function ManageTatami() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8080/api/matches/${match_id}/start`, {
-        method: "POST",
-      });
-
-      if (response.ok) {
-        // Just start the timer, no need to update match data
-        start();
-      } else {
-        alert("Failed to start match");
-      }
+      await matchApi.startMatch(match_id as string);
+      start();
     } catch (error) {
       console.error("Error starting match:", error);
       alert("Error starting match");
@@ -100,24 +89,8 @@ export default function ManageTatami() {
         winnerId = currentMatch.athlete2?.id || 0;
       }
 
-      const response = await fetch(`http://localhost:8080/api/matches/${match_id}/finish`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          score_athlete1: score1,
-          score_athlete2: score2,
-          winner_id: winnerId,
-        }),
-      });
-
-      if (response.ok) {
-        // Just stop the timer, no need to update match data
-        stop();
-      } else {
-        alert("Failed to finish match");
-      }
+      await matchApi.finishMatch(match_id as string, score1, score2, winnerId);
+      stop();
     } catch (error) {
       console.error("Error finishing match:", error);
       alert("Error finishing match");
@@ -148,24 +121,14 @@ export default function ManageTatami() {
     const newScore = Math.max(0, current + delta);
 
     try {
-      const response = await fetch(`http://localhost:8080/api/matches/${match_id}/scores`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          score_athlete1: fighter === 1 ? newScore : score1,
-          score_athlete2: fighter === 2 ? newScore : score2,
-        }),
-      });
-
-      if (response.ok) {
-        // Update only the score in the store
-        setState({ [key]: newScore });
-        sendTatamiMessage({ type: "score", fighter, score: newScore });
-      } else {
-        alert("Failed to update score");
-      }
+      await matchApi.updateScores(
+        match_id as string,
+        fighter === 1 ? newScore : score1,
+        fighter === 2 ? newScore : score2
+      );
+      // Update only the score in the store
+      setState({ [key]: newScore });
+      sendTatamiMessage({ type: "score", fighter, score: newScore });
     } catch (error) {
       console.error("Error updating score:", error);
       alert("Error updating score");
@@ -179,7 +142,50 @@ export default function ManageTatami() {
     sendTatamiMessage({ type: "shido", fighter, shido: newShido });
   };
 
-  // Sync full state to other tabs
+  const formatRemainingForInput = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const milliseconds = Math.floor((ms % 1000) / 10);
+    return { minutes, seconds, milliseconds };
+  };
+
+  const saveTimeAdjustment = () => {
+    if (
+      timeAdjustInput.minutes < 0 ||
+      timeAdjustInput.seconds < 0 ||
+      timeAdjustInput.seconds > 59 ||
+      timeAdjustInput.milliseconds < 0 ||
+      timeAdjustInput.milliseconds > 99
+    ) {
+      alert("Invalid time values");
+      return;
+    }
+    adjustRemainingTime(timeAdjustInput.minutes, timeAdjustInput.seconds, timeAdjustInput.milliseconds);
+    setShowTimeAdjustDialog(false);
+  };
+
+  const adjustRemainingTime = (minutes: number, seconds: number, milliseconds: number) => {
+    const newRemaining = (minutes * 60 + seconds) * 1000 + milliseconds * 10;
+    const newElapsed = Math.max(0, durationMs - newRemaining);
+    setState({ pausedElapsed: newElapsed, elapsed: newElapsed });
+    sendTatamiMessage({
+      type: "sync",
+      state: {
+        status,
+        startTimestamp,
+        pausedElapsed: newElapsed,
+        elapsed: newElapsed,
+        durationMs,
+        score1,
+        score2,
+        shido1,
+        shido2,
+        currentMatch,
+      },
+    });
+  };
+
   const syncState = () => {
     sendTatamiMessage({
       type: "sync",
@@ -198,25 +204,8 @@ export default function ManageTatami() {
     });
   };
 
-  useEffect(() => {
-    onTatamiMessage((msg) => {
-      if (msg.type === "start") {
-        setState({ status: "running", startTimestamp: msg.timestamp, pausedElapsed: msg.pausedElapsed });
-      } else if (msg.type === "pause") {
-        setState({ status: "paused", startTimestamp: null, pausedElapsed: msg.pausedElapsed });
-      } else if (msg.type === "stop") {
-        reset();
-      } else if (msg.type === "score") {
-        const key = `score${msg.fighter}` as keyof TatamiState;
-        setState({ [key]: msg.score });
-      } else if (msg.type === "shido") {
-        const key = `shido${msg.fighter}` as keyof TatamiState;
-        setState({ [key]: msg.shido });
-      } else if (msg.type === "sync") {
-        setState(msg.state);
-      }
-    });
-  }, []);
+  const remaining = Math.max(0, durationMs - elapsed);
+  const currentRemaining = formatRemainingForInput(remaining);
 
   useEffect(() => {
     if (status === "running" && startTimestamp) {
@@ -224,28 +213,41 @@ export default function ManageTatami() {
         const now = Date.now();
         const elapsed = pausedElapsed + (now - startTimestamp);
         setState({ elapsed });
+
+        if (elapsed >= durationMs) {
+          pause();
+        }
       }, 100);
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current);
       setState({ elapsed: pausedElapsed });
     }
+
+    if (status === "paused") {
+      setTimeAdjustInput({
+        minutes: currentRemaining.minutes,
+        seconds: currentRemaining.seconds,
+        milliseconds: currentRemaining.milliseconds,
+      });
+    }
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [status, startTimestamp, pausedElapsed]);
+  }, [
+    status,
+    startTimestamp,
+    pausedElapsed,
+    currentRemaining.minutes,
+    currentRemaining.seconds,
+    currentRemaining.milliseconds,
+  ]);
 
-  const format = (ms: number) => {
-    const clamped = Math.max(0, ms);
-    const s = Math.floor(clamped / 1000);
-    const m = Math.floor(s / 60);
-    const remS = s % 60;
-    const remMS = Math.floor((clamped % 1000) / 10);
-    return `${String(m).padStart(2, "0")}:${String(remS).padStart(2, "0")}.${String(remMS).padStart(2, "0")}`;
+  const handleTimeAdjustInputChange = (field: "minutes" | "seconds" | "milliseconds", value: number) => {
+    setTimeAdjustInput((prev) => ({ ...prev, [field]: value }));
   };
-
-  const remaining = Math.max(0, durationMs - elapsed);
 
   return (
     <div className="p-4 space-y-4 max-w-4xl mx-auto">
@@ -256,184 +258,39 @@ export default function ManageTatami() {
         </Button>
       </div>
 
-      {/* Match Configuration */}
-      <div className="border rounded-lg p-4 bg-blue-50">
-        <h3 className="text-lg font-semibold mb-2">Current Match</h3>
-        {currentMatch ? (
-          <div className="space-y-2">
-            <div>
-              <strong>Athlete 1:</strong>{" "}
-              {currentMatch.athlete1 ? `${currentMatch.athlete1.first_name} ${currentMatch.athlete1.last_name}` : "TBD"}
-            </div>
-            <div>
-              <strong>Athlete 2:</strong>{" "}
-              {currentMatch.athlete2 ? `${currentMatch.athlete2.first_name} ${currentMatch.athlete2.last_name}` : "TBD"}
-            </div>
-            <div>
-              <strong>Status:</strong> {currentMatch.status}
-            </div>
-            <div>
-              <strong>Match ID:</strong> {match_id}
-            </div>
-          </div>
-        ) : (
-          <div className="text-gray-600">
-            No match selected. Please go to{" "}
-            <a href="/admin/setup" className="text-blue-600 underline">
-              Match Setup
-            </a>{" "}
-            to select a match.
-          </div>
-        )}
-      </div>
+      <MatchInfo currentMatch={currentMatch} matchId={match_id as string} />
 
-      {/* Timer Display */}
-      <div className="text-center">
-        <div className="text-6xl font-mono mb-2">{format(remaining)}</div>
-        <div className="text-sm text-gray-600">
-          Duration: {Math.floor(durationMs / 60000)}:{String(Math.floor((durationMs % 60000) / 1000)).padStart(2, "0")}
-        </div>
-      </div>
+      <TimerDisplay remaining={remaining} durationMs={durationMs} />
 
-      {/* Match Controls */}
-      <div className="flex justify-center space-x-2">
-        <Button
-          onClick={startMatch}
-          disabled={status === "running" || currentMatch?.status === "started"}
-          className="bg-green-600 hover:bg-green-700"
-        >
-          Start Match
-        </Button>
-        <Button onClick={pause} variant="secondary" disabled={status !== "running"}>
-          Pause
-        </Button>
-        <Button onClick={start} disabled={status === "running"}>
-          Resume
-        </Button>
-        <Button onClick={syncState} variant="outline">
-          Sync
-        </Button>
-      </div>
+      <MatchControls
+        status={status}
+        currentMatch={currentMatch}
+        onStartMatch={startMatch}
+        onPause={pause}
+        onResume={start}
+        onSync={syncState}
+        onFinishMatch={finishMatch}
+      />
 
-      {/* Match Status */}
-      <div className="text-center">
-        <span
-          className={`px-3 py-1 rounded-full text-sm font-medium ${
-            currentMatch?.status === "not_started"
-              ? "bg-gray-100 text-gray-800"
-              : currentMatch?.status === "started"
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
-          {currentMatch?.status === "not_started"
-            ? "Not Started"
-            : currentMatch?.status === "started"
-            ? "Match Started"
-            : "Match Finished"}
-        </span>
+      <FighterControls
+        currentMatch={currentMatch}
+        score1={score1}
+        score2={score2}
+        shido1={shido1}
+        shido2={shido2}
+        onAdjustScore={adjustScore}
+        onSetShido={setShido}
+      />
 
-        {currentMatch?.status === "started" && (
-          <div className="mt-2">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="destructive" size="sm">
-                  Finish Match
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Finish Match</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to finish this match? This action cannot be undone and will send a completion
-                    signal to the backend.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="outline">Cancel</Button>
-                  <Button variant="destructive" onClick={finishMatch}>
-                    Finish Match
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        )}
-      </div>
-
-      {/* Fighter Controls */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {[1, 2].map((id) => {
-          const athlete = id === 1 ? currentMatch?.athlete1 : currentMatch?.athlete2;
-          const athleteName = athlete ? `${athlete.first_name} ${athlete.last_name}` : `Fighter ${id}`;
-
-          return (
-            <div key={id} className="border rounded-lg p-4">
-              <h3 className="font-semibold text-lg mb-3">{athleteName}</h3>
-
-              {/* Score */}
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-2">
-                  Score: <span className="font-bold text-lg">{id === 1 ? score1 : score2}</span>
-                </p>
-                <div className="flex flex-col gap-2">
-                  {/* Plus buttons */}
-                  <div className="flex gap-2 justify-center">
-                    {[1, 2, 3].map((v) => (
-                      <Button
-                        key={v}
-                        variant="outline"
-                        className="w-10"
-                        size="sm"
-                        onClick={() => adjustScore(id as 1 | 2, v)}
-                      >
-                        +{v}
-                      </Button>
-                    ))}
-                  </div>
-                  {/* Minus buttons */}
-                  <div className="flex gap-2 justify-center">
-                    {[-1, -2, -3].map((v) => (
-                      <Button
-                        key={v}
-                        variant="outline"
-                        className="w-10"
-                        size="sm"
-                        onClick={() => adjustScore(id as 1 | 2, v)}
-                      >
-                        {v}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Shido */}
-              <div>
-                <div className="flex gap-2 flex-wrap justify-center">
-                  {[
-                    { value: 0, label: "None" },
-                    { value: 1, label: "C1" },
-                    { value: 2, label: "C2" },
-                    { value: 3, label: "C3" },
-                    { value: 4, label: "HC" },
-                    { value: 5, label: "H" },
-                  ].map(({ value, label }) => (
-                    <Button
-                      key={value}
-                      variant={value === (id === 1 ? shido1 : shido2) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setShido(id as 1 | 2, value)}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <TimeAdjustment
+        status={status}
+        timeAdjustInput={timeAdjustInput}
+        showTimeAdjustDialog={showTimeAdjustDialog}
+        currentRemaining={currentRemaining}
+        onTimeAdjustInputChange={handleTimeAdjustInputChange}
+        onShowTimeAdjustDialogChange={setShowTimeAdjustDialog}
+        onSaveTimeAdjustment={saveTimeAdjustment}
+      />
     </div>
   );
 }
