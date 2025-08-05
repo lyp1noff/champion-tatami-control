@@ -5,13 +5,13 @@ import { TatamiState, useTatamiStore } from "@/store/tatami";
 import { sendTatamiMessage } from "@/lib/tatami-bus";
 import { Button } from "@/components/ui/button";
 import { useParams } from "next/navigation";
-import { matchApi } from "@/lib/api";
 import { TimerDisplay } from "./components/TimerDisplay";
 import { MatchControls } from "./components/MatchControls";
 import { FighterControls } from "./components/FighterControls";
 import { TimeAdjustment } from "./components/TimeAdjustment";
 import { FinishMatchDialog } from "./components/FinishMatchDialog";
 import { StartMatchDialog } from "./components/StartMatchDialog";
+import { getMatch, startMatch as startMatchApi, finishMatch as finishMatchApi, updateScores } from "@/lib/api";
 
 export default function ManageTatami() {
   const { id: tatamiId, match_id } = useParams();
@@ -44,7 +44,7 @@ export default function ManageTatami() {
   const loadMatchData = useCallback(
     async (matchId: string) => {
       try {
-        const match = await matchApi.getMatch(matchId);
+        const match = await getMatch(matchId);
         setMatch(match);
       } catch (error) {
         console.error("Error loading match data:", error);
@@ -66,7 +66,7 @@ export default function ManageTatami() {
     }
 
     try {
-      await matchApi.startMatch(match_id as string);
+      await startMatchApi(match_id as string);
       setState({ currentMatch: { ...currentMatch, status: "started" } });
       syncState();
     } catch (error) {
@@ -82,7 +82,7 @@ export default function ManageTatami() {
     }
 
     try {
-      await matchApi.finishMatch(match_id as string, score1, score2, winnerId);
+      await finishMatchApi(match_id as string, score1, score2, winnerId);
       reset();
     } catch (error) {
       console.error("Error finishing match:", error);
@@ -115,7 +115,7 @@ export default function ManageTatami() {
     const newScore = Math.max(0, current + delta);
 
     try {
-      await matchApi.updateScores(
+      await updateScores(
         match_id as string,
         fighter === 1 ? newScore : score1,
         fighter === 2 ? newScore : score2

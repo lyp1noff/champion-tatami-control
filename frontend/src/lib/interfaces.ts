@@ -86,10 +86,11 @@ export interface Tournament {
   location: string;
   start_date: string;
   end_date: string;
-  registration_start_date: string;
-  registration_end_date: string;
+  registration_start_date?: string;
+  registration_end_date?: string;
   image_url?: string;
-  status: string;
+  status?: string;
+  description?: string;
 }
 
 export interface TournamentMatchesFull {
@@ -103,3 +104,15 @@ export interface TournamentMatchesFull {
   bracket_id: number;
   matches: BracketMatch[];
 }
+
+export interface CurrentTournamentResponse {
+  current_tournament_id: number | null;
+}
+
+export interface TatamisResponse {
+  tatamis: number[];
+}
+
+// export interface OutboxStatusResponse {
+//   [key: string]: any;
+// }

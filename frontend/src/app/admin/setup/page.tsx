@@ -3,14 +3,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-interface Tournament {
-  id: number;
-  name: string;
-  location: string;
-  start_date: string;
-  end_date: string;
-}
+import { 
+  getTournaments, 
+  getCurrentTournament, 
+  setCurrentTournament, 
+  getTatamis, 
+  syncTournament,
+} from "@/lib/api";
+import { Tournament } from "@/lib/interfaces";
 
 export default function SetupPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -29,9 +29,8 @@ export default function SetupPage() {
     const fetchTournaments = async () => {
       try {
         setLoading(true);
-        const response = await fetch("http://localhost:8080/api/external/tournaments");
-        const data = await response.json();
-        setTournaments(data || []);
+        const data = await getTournaments();
+        setTournaments(data);
       } catch (error) {
         console.error("Error fetching tournaments:", error);
       } finally {
@@ -41,12 +40,11 @@ export default function SetupPage() {
 
     const fetchCurrentTournament = async () => {
       try {
-        const response = await fetch("http://localhost:8080/api/settings/current-tournament");
-        const data = await response.json();
+        const data = await getCurrentTournament();
         setSelectedTournament(data.current_tournament_id);
 
         if (data.current_tournament_id) {
-          await fetchAvailableTatamis(parseInt(data.current_tournament_id));
+          await fetchAvailableTatamis(data.current_tournament_id);
         }
       } catch (error) {
         console.error("Error fetching current tournament:", error);
@@ -60,8 +58,7 @@ export default function SetupPage() {
   const fetchOutboxStatus = async () => {
     try {
       console.log("fetching outbox status");
-      // const response = await fetch("/api/outbox/status");
-      // const data = await response.json();
+      // const data = await getOutboxStatus();
       // setOutboxStatus(data);
     } catch (error) {
       console.error("Error fetching outbox status:", error);
@@ -70,23 +67,12 @@ export default function SetupPage() {
 
   const handleTournamentSelect = async (tournamentId: number) => {
     try {
-      const response = await fetch("http://localhost:8080/api/settings/current-tournament", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ current_tournament_id: tournamentId }),
-      });
-
-      if (response.ok) {
-        setSelectedTournament(tournamentId);
-        if (tournamentId) {
-          await fetchAvailableTatamis(tournamentId);
-        } else {
-          setAvailableTatamis([]);
-        }
+      await setCurrentTournament(tournamentId);
+      setSelectedTournament(tournamentId);
+      if (tournamentId) {
+        await fetchAvailableTatamis(tournamentId);
       } else {
-        console.error("Failed to save tournament selection");
+        setAvailableTatamis([]);
       }
     } catch (error) {
       console.error("Error saving tournament selection:", error);
@@ -95,9 +81,8 @@ export default function SetupPage() {
 
   const fetchAvailableTatamis = async (tournamentId: number) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/tournaments/${tournamentId}/tatamis`);
-      const data = await response.json();
-      setAvailableTatamis(data.tatamis || []);
+      const data = await getTatamis(tournamentId);
+      setAvailableTatamis(data.tatamis);
     } catch (error) {
       console.error("Error fetching available tatamis:", error);
     }
@@ -108,17 +93,10 @@ export default function SetupPage() {
 
     try {
       setSyncing(true);
-      const response = await fetch(`http://localhost:8080/api/tournaments/${selectedTournament}/sync`, {
-        method: "POST",
-      });
-
-      if (response.ok) {
-        await fetchAvailableTatamis(selectedTournament);
-        await fetchOutboxStatus();
-        alert("Tournament synced successfully!");
-      } else {
-        alert("Failed to sync tournament");
-      }
+      await syncTournament(selectedTournament);
+      await fetchAvailableTatamis(selectedTournament);
+      await fetchOutboxStatus();
+      alert("Tournament synced successfully!");
     } catch (error) {
       console.error("Error syncing tournament:", error);
       alert("Error syncing tournament");

@@ -75,11 +75,28 @@ func (r *OutboxRepository) GetPendingItems(ctx context.Context, limit int) ([]Ou
 func (r *OutboxRepository) UpdateItemStatus(ctx context.Context, itemID int, status string, errorMsg *string) error {
 	r.logger.Debug("Updating item %d status to: %s", itemID, status)
 
-	_, err := r.db.Exec(ctx, `
-		UPDATE outbox_items
-		SET status = $1, retry_count = retry_count + 1, error = $2, updated_at = NOW()
-		WHERE id = $3
-	`, status, errorMsg, itemID)
+	var query string
+	var args []interface{}
+
+	if status == "success" {
+		// For successful requests, don't increment retry_count
+		query = `
+			UPDATE outbox_items
+			SET status = $1, error = $2, updated_at = NOW()
+			WHERE id = $3
+		`
+		args = []interface{}{status, errorMsg, itemID}
+	} else {
+		// For failed requests, increment retry_count
+		query = `
+			UPDATE outbox_items
+			SET status = $1, retry_count = retry_count + 1, error = $2, updated_at = NOW()
+			WHERE id = $3
+		`
+		args = []interface{}{status, errorMsg, itemID}
+	}
+
+	_, err := r.db.Exec(ctx, query, args...)
 
 	if err != nil {
 		r.logger.Error("Error updating item %d: %v", itemID, err)

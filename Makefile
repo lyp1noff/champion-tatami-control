@@ -9,7 +9,7 @@ test-back:
 	cd backend && poetry run pytest
 
 dev-back:
-	cd backend && poetry install && poetry run uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+	cd backend && poetry install && poetry run uvicorn src.main:app --reload --host 0.0.0.0 --port 8001
 
 # Frontend
 format-front:
