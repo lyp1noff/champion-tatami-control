@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bracket, BracketMatch } from "@/lib/interfaces";
+import { Athlete, Bracket, BracketMatch } from "@/lib/interfaces";
 
 interface Tournament {
   id: number;
@@ -29,54 +29,54 @@ export default function TatamiSetupPage() {
 
   // Load tournament and brackets on mount
   useEffect(() => {
+    const fetchCurrentTournament = async () => {
+      try {
+        const response = await fetch("http://localhost:8080/api/settings/current-tournament");
+        const data = await response.json();
+        setSelectedTournament(data.current_tournament_id);
+      } catch (error) {
+        console.error("Error fetching current tournament:", error);
+      }
+    };
+
     fetchCurrentTournament();
   }, []);
 
   useEffect(() => {
+    const fetchTournament = async () => {
+      try {
+        const response = await fetch(`http://localhost:8080/api/tournaments/${selectedTournament}`);
+        const data = await response.json();
+        setTournament(data);
+      } catch (error) {
+        console.error("Error fetching tournament:", error);
+      }
+    };
+
+    const fetchBrackets = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`http://localhost:8080/api/tournaments/${selectedTournament}/brackets`);
+        const data = await response.json();
+
+        // Filter brackets assigned to this tatami
+        const assignedBrackets = data.filter(
+          (bracket: Bracket) => bracket.tatami && bracket.tatami.toString() === tatamiId
+        );
+
+        setBrackets(assignedBrackets);
+      } catch (error) {
+        console.error("Error fetching brackets:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (selectedTournament) {
       fetchTournament();
       fetchBrackets();
     }
-  }, [selectedTournament]);
-
-  const fetchCurrentTournament = async () => {
-    try {
-      const response = await fetch("http://localhost:8080/api/settings/current-tournament");
-      const data = await response.json();
-      setSelectedTournament(data.current_tournament_id);
-    } catch (error) {
-      console.error("Error fetching current tournament:", error);
-    }
-  };
-
-  const fetchTournament = async () => {
-    try {
-      const response = await fetch(`http://localhost:8080/api/tournaments/${selectedTournament}`);
-      const data = await response.json();
-      setTournament(data);
-    } catch (error) {
-      console.error("Error fetching tournament:", error);
-    }
-  };
-
-  const fetchBrackets = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`http://localhost:8080/api/tournaments/${selectedTournament}/brackets`);
-      const data = await response.json();
-
-      // Filter brackets assigned to this tatami
-      const assignedBrackets = data.filter(
-        (bracket: Bracket) => bracket.tatami && bracket.tatami.toString() === tatamiId
-      );
-
-      setBrackets(assignedBrackets);
-    } catch (error) {
-      console.error("Error fetching brackets:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [selectedTournament, tatamiId]);
 
   const fetchMatches = async (bracketId: string) => {
     try {
@@ -114,9 +114,9 @@ export default function TatamiSetupPage() {
     }
   };
 
-  const getAthleteName = (athlete: any) => {
+  const getAthleteName = (athlete: Athlete) => {
     if (!athlete) return "TBD";
-    return `${athlete.first_name} ${athlete.last_name}`;
+    return `${athlete.first_name} ${athlete.last_name} (${athlete.coaches_last_name})`;
   };
 
   const handleStartMatch = () => {
@@ -182,7 +182,8 @@ export default function TatamiSetupPage() {
                       {matches.map((bracketMatch) => (
                         <SelectItem key={String(bracketMatch.external_id)} value={String(bracketMatch.external_id)}>
                           Round {bracketMatch.round_number} - Match {bracketMatch.position}:{" "}
-                          {getAthleteName(bracketMatch.match.athlete1)} vs {getAthleteName(bracketMatch.match.athlete2)}
+                          {bracketMatch.match.athlete1 ? getAthleteName(bracketMatch.match.athlete1) : "Unknown"} vs{" "}
+                          {bracketMatch.match.athlete2 ? getAthleteName(bracketMatch.match.athlete2) : "Unknown"}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -211,10 +212,12 @@ export default function TatamiSetupPage() {
                     <strong>Status:</strong> {selectedMatchData.match.status}
                   </div>
                   <div>
-                    <strong>Athlete 1:</strong> {getAthleteName(selectedMatchData.match.athlete1)}
+                    <strong>Athlete 1:</strong>{" "}
+                    {selectedMatchData.match.athlete1 ? getAthleteName(selectedMatchData.match.athlete1) : "Unknown"}
                   </div>
                   <div>
-                    <strong>Athlete 2:</strong> {getAthleteName(selectedMatchData.match.athlete2)}
+                    <strong>Athlete 2:</strong>{" "}
+                    {selectedMatchData.match.athlete2 ? getAthleteName(selectedMatchData.match.athlete2) : "Unknown"}
                   </div>
                   {selectedMatchData.match.score_athlete1 !== undefined && (
                     <div>

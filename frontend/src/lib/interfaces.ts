@@ -1,3 +1,40 @@
+export interface ExternalMatch {
+  external_id: string;
+  round_type?: string;
+  athlete1?: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    gender: string;
+    birth_date?: string;
+    coaches_last_name: string[];
+    age?: number;
+  };
+  athlete2?: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    gender: string;
+    birth_date?: string;
+    coaches_last_name: string[];
+    age?: number;
+  };
+  winner?: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    gender: string;
+    birth_date?: string;
+    coaches_last_name: string[];
+    age?: number;
+  };
+  score_athlete1?: number;
+  score_athlete2?: number;
+  status: "not_started" | "started" | "finished";
+  started_at?: string;
+  ended_at?: string;
+}
+
 export interface Athlete {
   id: number;
   first_name: string;
@@ -8,7 +45,7 @@ export interface Athlete {
   age?: number;
 }
 
-export interface Match {
+interface Match {
   external_id: string;
   round_type?: string;
   athlete1?: Athlete;
@@ -39,7 +76,7 @@ export interface Bracket {
   display_name?: string;
   status: string;
   tournament_id: number;
-  participants: any[];
+  participants: Athlete[];
   matches?: BracketMatch[];
 }
 

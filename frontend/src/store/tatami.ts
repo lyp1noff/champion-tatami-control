@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Match, Athlete } from "@/lib/interfaces";
+import { ExternalMatch } from "@/lib/interfaces";
 
 export type TatamiState = {
   status: "idle" | "running" | "paused";
@@ -12,13 +12,12 @@ export type TatamiState = {
   score2: number;
   shido1: number;
   shido2: number;
-  currentMatch: Match | null;
+  currentMatch: ExternalMatch | null;
   setState: (partial: Partial<TatamiState>) => void;
   reset: () => void;
-  setMatch: (match: Match) => void;
+  setMatch: (match: ExternalMatch) => void;
   start: () => void;
   pause: () => void;
-  stop: () => void;
   setDuration: (durationMs: number) => void;
   get remaining(): number;
 };
@@ -53,13 +52,25 @@ export const useTatamiStore = create<TatamiState>()(
           currentMatch: null,
         }),
 
-      setMatch: (match: Match) =>
-        set({
-          currentMatch: match,
-          score1: match.score_athlete1 || 0,
-          score2: match.score_athlete2 || 0,
-          shido1: 0,
-          shido2: 0,
+      setMatch: (match: ExternalMatch) =>
+        set((state) => {
+          const isSameMatch = state.currentMatch?.external_id === match.external_id;
+          return isSameMatch
+            ? {
+                ...state,
+              }
+            : {
+                currentMatch: match,
+                status: "idle",
+                startTimestamp: null,
+                pausedElapsed: 0,
+                elapsed: 0,
+                durationMs: 60 * 1000,
+                score1: 0,
+                score2: 0,
+                shido1: 0,
+                shido2: 0,
+              };
         }),
 
       start: () =>
@@ -75,14 +86,6 @@ export const useTatamiStore = create<TatamiState>()(
           elapsed: state.startTimestamp ? Date.now() - state.startTimestamp + state.pausedElapsed : state.elapsed,
           startTimestamp: null,
         })),
-
-      stop: () =>
-        set({
-          status: "idle",
-          startTimestamp: null,
-          pausedElapsed: 0,
-          elapsed: 0,
-        }),
 
       setDuration: (durationMs: number) =>
         set({

@@ -13,7 +13,6 @@ interface TimeAdjustmentProps {
   status: string;
   timeAdjustInput: { minutes: number; seconds: number; milliseconds: number };
   showTimeAdjustDialog: boolean;
-  currentRemaining: { minutes: number; seconds: number; milliseconds: number };
   onTimeAdjustInputChange: (field: "minutes" | "seconds" | "milliseconds", value: number) => void;
   onShowTimeAdjustDialogChange: (show: boolean) => void;
   onSaveTimeAdjustment: () => void;
@@ -23,7 +22,6 @@ export function TimeAdjustment({
   status,
   timeAdjustInput,
   showTimeAdjustDialog,
-  currentRemaining,
   onTimeAdjustInputChange,
   onShowTimeAdjustDialogChange,
   onSaveTimeAdjustment,

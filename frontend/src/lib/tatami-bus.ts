@@ -1,14 +1,29 @@
+import { ExternalMatch } from "@/lib/interfaces";
+
 // BroadcastChannel for same-origin communication
 let channel: BroadcastChannel | null = null;
 let ws: WebSocket | null = null;
-let messageHandlers: ((msg: any) => void)[] = [];
+let messageHandlers: ((msg: TatamiMessage) => void)[] = [];
 
 // Try to initialize BroadcastChannel
 try {
   channel = new BroadcastChannel("tatami");
-} catch (error) {
+} catch {
   console.warn("BroadcastChannel not supported, falling back to WebSocket");
 }
+
+export type SyncState = {
+  status: "idle" | "running" | "paused";
+  startTimestamp: number | null;
+  pausedElapsed: number;
+  elapsed: number;
+  durationMs: number;
+  score1: number;
+  score2: number;
+  shido1: number;
+  shido2: number;
+  currentMatch: ExternalMatch | null;
+};
 
 export type TatamiMessage =
   | { type: "start"; timestamp: number; pausedElapsed: number }
@@ -16,7 +31,7 @@ export type TatamiMessage =
   | { type: "stop" }
   | { type: "score"; fighter: 1 | 2; score: number }
   | { type: "shido"; fighter: 1 | 2; shido: number }
-  | { type: "sync"; state: any };
+  | { type: "sync"; state: SyncState };
 
 export const sendTatamiMessage = (msg: TatamiMessage) => {
   if (channel) {

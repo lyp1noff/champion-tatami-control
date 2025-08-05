@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { Match } from "@/lib/api";
+import { ExternalMatch } from "@/lib/interfaces";
 
 interface FighterControlsProps {
-  currentMatch: Match | null;
+  currentMatch: ExternalMatch | null;
   score1: number;
   score2: number;
   shido1: number;
@@ -24,7 +24,9 @@ export function FighterControls({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {[1, 2].map((id) => {
         const athlete = id === 1 ? currentMatch?.athlete1 : currentMatch?.athlete2;
-        const athleteName = athlete ? `${athlete.first_name} ${athlete.last_name}` : `Fighter ${id}`;
+        const athleteName = athlete
+          ? `${athlete.first_name} ${athlete.last_name} (${athlete.coaches_last_name})`
+          : `Fighter ${id}`;
 
         return (
           <div key={id} className="border rounded-lg p-4">
@@ -94,4 +96,4 @@ export function FighterControls({
       })}
     </div>
   );
-} 
+}

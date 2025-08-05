@@ -9,7 +9,6 @@ export default function ScreenTatami() {
     status,
     startTimestamp,
     pausedElapsed,
-    elapsed,
     durationMs,
     score1,
     score2,
@@ -38,7 +37,7 @@ export default function ScreenTatami() {
         setState(msg.state);
       }
     });
-  }, []);
+  }, [setState, reset]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -56,7 +55,7 @@ export default function ScreenTatami() {
         clearInterval(interval);
       }
     };
-  }, [status, startTimestamp, pausedElapsed]);
+  }, [status, startTimestamp, pausedElapsed, setState]);
 
   const format = (ms: number) => {
     const clamped = Math.max(0, ms);
@@ -87,32 +86,10 @@ export default function ScreenTatami() {
     </div>
   );
 
-  const getStatusColor = () => {
-    switch (status) {
-      case "running":
-        return "text-green-400";
-      case "paused":
-        return "text-yellow-400";
-      default:
-        return "text-gray-400";
-    }
-  };
-
   const getTimerColor = () => {
     if (status === "paused" && remaining > 0) return "text-yellow-400";
     if (remaining <= 10000) return "text-red-500";
     return "text-white";
-  };
-
-  const getStatusText = () => {
-    switch (status) {
-      case "running":
-        return "FIGHT";
-      case "paused":
-        return "PAUSED";
-      default:
-        return "READY";
-    }
   };
 
   return (

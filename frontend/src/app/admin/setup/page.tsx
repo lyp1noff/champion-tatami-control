@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -14,18 +13,11 @@ interface Tournament {
 }
 
 export default function SetupPage() {
-  const router = useRouter();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [availableTatamis, setAvailableTatamis] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [selectedTournament, setSelectedTournament] = useState<number | null>(null);
-
-  // Load tournaments and current tournament on mount
-  useEffect(() => {
-    fetchTournaments();
-    fetchCurrentTournament();
-  }, []);
 
   // Fetch outbox status every 10 seconds
   useEffect(() => {
@@ -33,32 +25,37 @@ export default function SetupPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const fetchTournaments = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("http://localhost:8080/api/external/tournaments");
-      const data = await response.json();
-      setTournaments(data || []);
-    } catch (error) {
-      console.error("Error fetching tournaments:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCurrentTournament = async () => {
-    try {
-      const response = await fetch("http://localhost:8080/api/settings/current-tournament");
-      const data = await response.json();
-      setSelectedTournament(data.current_tournament_id);
-
-      if (data.current_tournament_id) {
-        await fetchAvailableTatamis(parseInt(data.current_tournament_id));
+  useEffect(() => {
+    const fetchTournaments = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("http://localhost:8080/api/external/tournaments");
+        const data = await response.json();
+        setTournaments(data || []);
+      } catch (error) {
+        console.error("Error fetching tournaments:", error);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching current tournament:", error);
-    }
-  };
+    };
+
+    const fetchCurrentTournament = async () => {
+      try {
+        const response = await fetch("http://localhost:8080/api/settings/current-tournament");
+        const data = await response.json();
+        setSelectedTournament(data.current_tournament_id);
+
+        if (data.current_tournament_id) {
+          await fetchAvailableTatamis(parseInt(data.current_tournament_id));
+        }
+      } catch (error) {
+        console.error("Error fetching current tournament:", error);
+      }
+    };
+
+    fetchTournaments();
+    fetchCurrentTournament();
+  }, []);
 
   const fetchOutboxStatus = async () => {
     try {
