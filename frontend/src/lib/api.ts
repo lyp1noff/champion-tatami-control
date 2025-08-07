@@ -1,10 +1,10 @@
-import { 
-  ExternalMatch, 
-  Tournament, 
-  CurrentTournamentResponse, 
-  TatamisResponse, 
+import {
+  ExternalMatch,
+  Tournament,
+  CurrentTournamentResponse,
+  TatamisResponse,
   Bracket,
-  BracketMatch
+  BracketMatch,
 } from "./interfaces";
 
 const API_BASE_URL = "http://localhost:8001/api";
@@ -30,7 +30,7 @@ export async function finishMatch(
   matchId: string,
   scoreAthlete1: number,
   scoreAthlete2: number,
-  winnerId: number
+  winnerId: number,
 ): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/matches/${matchId}/finish`, {
     method: "POST",

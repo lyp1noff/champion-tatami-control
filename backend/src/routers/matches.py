@@ -4,11 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.services.serialize import serialize_match
+from src.services.serialize import serialize_match_with_bracket
 from src.services.outbox import create_match_start_outbox, create_match_finish_outbox, create_match_scores_outbox
 from src.models import Match, BracketMatch
 from src.database import get_db
-from src.schemas import MatchSchema, UpdateMatchScoresSchema, FinishMatchSchema
+from src.schemas import UpdateMatchScoresSchema, FinishMatchSchema, MatchWithBracketSchema
 
 router = APIRouter(
     prefix="/matches",
@@ -16,20 +16,21 @@ router = APIRouter(
 )
 
 
-@router.get("/{match_id}", response_model=MatchSchema)
-async def get_match(match_id: str, db: AsyncSession = Depends(get_db)) -> MatchSchema:
+@router.get("/{match_id}", response_model=MatchWithBracketSchema)
+async def get_match(match_id: str, db: AsyncSession = Depends(get_db)) -> MatchWithBracketSchema:
     result = await db.execute(
         select(Match)
         .where(Match.external_id == match_id)
         .options(
             selectinload(Match.athlete1),
             selectinload(Match.athlete2),
+            selectinload(Match.bracket_matches).selectinload(BracketMatch.bracket),
         )
     )
     match = result.scalar_one_or_none()
     if match is None:
         raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
-    return serialize_match(match)
+    return serialize_match_with_bracket(match)
 
 
 @router.post("/{match_id}/start", response_model=dict)

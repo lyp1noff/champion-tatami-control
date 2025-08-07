@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { TatamiState, useTatamiStore } from "@/store/tatami";
-import { sendTatamiMessage } from "@/lib/tatami-bus";
+import { useTatamiStore } from "@/store/tatami";
+
 import { Button } from "@/components/ui/button";
 import { useParams } from "next/navigation";
 import { TimerDisplay } from "./components/TimerDisplay";
@@ -19,7 +19,6 @@ export default function ManageTatami() {
     status,
     startTimestamp,
     pausedElapsed,
-    elapsed,
     durationMs,
     score1,
     score2,
@@ -34,6 +33,7 @@ export default function ManageTatami() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [timeAdjustInput, setTimeAdjustInput] = useState({ minutes: 0, seconds: 0, milliseconds: 0 });
   const [showTimeAdjustDialog, setShowTimeAdjustDialog] = useState(false);
+  const [localElapsed, setLocalElapsed] = useState(0); // Local timer state
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -50,7 +50,7 @@ export default function ManageTatami() {
         console.error("Error loading match data:", error);
       }
     },
-    [setMatch]
+    [setMatch],
   );
 
   useEffect(() => {
@@ -68,7 +68,6 @@ export default function ManageTatami() {
     try {
       await startMatchApi(match_id as string);
       setState({ currentMatch: { ...currentMatch, status: "started" } });
-      syncState();
     } catch (error) {
       console.error("Error starting match:", error);
       alert("Error starting match");
@@ -94,14 +93,12 @@ export default function ManageTatami() {
     if (startTimestamp) {
       const total = pausedElapsed + (Date.now() - startTimestamp);
       setState({ status: "paused", startTimestamp: null, pausedElapsed: total });
-      sendTatamiMessage({ type: "pause", pausedElapsed: total });
     }
   }, [startTimestamp, pausedElapsed, setState]);
 
   const resume = () => {
     const now = Date.now();
     setState({ status: "running", startTimestamp: now });
-    sendTatamiMessage({ type: "start", timestamp: now, pausedElapsed });
   };
 
   const adjustScore = async (fighter: 1 | 2, delta: number) => {
@@ -110,19 +107,13 @@ export default function ManageTatami() {
       return;
     }
 
-    const key = `score${fighter}` as keyof TatamiState;
-    const current = useTatamiStore.getState()[key] as number;
+    const current = fighter === 1 ? score1 : score2;
     const newScore = Math.max(0, current + delta);
 
     try {
-      await updateScores(
-        match_id as string,
-        fighter === 1 ? newScore : score1,
-        fighter === 2 ? newScore : score2
-      );
+      await updateScores(match_id as string, fighter === 1 ? newScore : score1, fighter === 2 ? newScore : score2);
       // Update only the score in the store
-      setState({ [key]: newScore });
-      sendTatamiMessage({ type: "score", fighter, score: newScore });
+      setState({ [`score${fighter}`]: newScore });
     } catch (error) {
       console.error("Error updating score:", error);
       alert("Error updating score");
@@ -130,10 +121,8 @@ export default function ManageTatami() {
   };
 
   const setShido = (fighter: 1 | 2, value: number) => {
-    const key = `shido${fighter}` as keyof TatamiState;
     const newShido = Math.max(0, Math.min(5, value));
-    setState({ [key]: newShido });
-    sendTatamiMessage({ type: "shido", fighter, shido: newShido });
+    setState({ [`shido${fighter}`]: newShido });
   };
 
   const formatRemainingForInput = (ms: number) => {
@@ -162,43 +151,10 @@ export default function ManageTatami() {
   const adjustRemainingTime = (minutes: number, seconds: number, milliseconds: number) => {
     const newRemaining = (minutes * 60 + seconds) * 1000 + milliseconds * 10;
     const newElapsed = Math.max(0, durationMs - newRemaining);
-    setState({ pausedElapsed: newElapsed, elapsed: newElapsed });
-    sendTatamiMessage({
-      type: "sync",
-      state: {
-        status,
-        startTimestamp,
-        pausedElapsed: newElapsed,
-        elapsed: newElapsed,
-        durationMs,
-        score1,
-        score2,
-        shido1,
-        shido2,
-        currentMatch,
-      },
-    });
+    setState({ pausedElapsed: newElapsed });
   };
 
-  const syncState = () => {
-    sendTatamiMessage({
-      type: "sync",
-      state: {
-        status,
-        startTimestamp,
-        pausedElapsed,
-        elapsed,
-        durationMs,
-        score1,
-        score2,
-        shido1,
-        shido2,
-        currentMatch,
-      },
-    });
-  };
-
-  const remaining = Math.max(0, durationMs - elapsed);
+  const remaining = Math.max(0, durationMs - localElapsed);
   const currentRemaining = formatRemainingForInput(remaining);
 
   useEffect(() => {
@@ -206,7 +162,7 @@ export default function ManageTatami() {
       intervalRef.current = setInterval(() => {
         const now = Date.now();
         const elapsed = pausedElapsed + (now - startTimestamp);
-        setState({ elapsed });
+        setLocalElapsed(elapsed);
 
         if (elapsed >= durationMs) {
           pause();
@@ -214,7 +170,7 @@ export default function ManageTatami() {
       }, 100);
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current);
-      setState({ elapsed: pausedElapsed });
+      setLocalElapsed(pausedElapsed);
     }
 
     if (status === "paused") {
@@ -239,7 +195,6 @@ export default function ManageTatami() {
     currentRemaining.milliseconds,
     durationMs,
     pause,
-    setState,
   ]);
 
   const handleTimeAdjustInputChange = (field: "minutes" | "seconds" | "milliseconds", value: number) => {
@@ -271,27 +226,27 @@ export default function ManageTatami() {
           className={`px-3 py-1 rounded-full text-sm font-medium ${
             currentMatch?.status === "not_started"
               ? "bg-gray-100 text-gray-800"
-              : currentMatch?.status === "started"
-              ? "bg-green-100 text-green-800"
-              : "bg-red-100 text-red-800"
+              : currentMatch?.status === "in_progress"
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
           }`}
         >
           {currentMatch?.status === "not_started"
             ? "Not Started"
-            : currentMatch?.status === "started"
-            ? "Match Started"
-            : "Match Finished"}
+            : currentMatch?.status === "in_progress" || currentMatch?.status === "started"
+              ? "Match Started"
+              : "Match Finished"}
         </span>
       </div>
 
       {currentMatch?.status === "not_started" && (
         <StartMatchDialog currentMatch={currentMatch} status={status} onStartMatch={startMatch} />
       )}
-      {currentMatch?.status === "started" && (
+      {(currentMatch?.status === "started" || currentMatch?.status === "in_progress") && (
         <>
           <TimerDisplay remaining={remaining} durationMs={durationMs} />
 
-          <MatchControls status={status} onPause={pause} onResume={resume} onSync={syncState} />
+          <MatchControls status={status} onPause={pause} onResume={resume} />
 
           <FighterControls
             currentMatch={currentMatch}

@@ -21,4 +21,4 @@ export function TimerDisplay({ remaining, durationMs }: TimerDisplayProps) {
       </div>
     </div>
   );
-} 
+}

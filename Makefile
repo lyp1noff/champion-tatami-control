@@ -1,38 +1,42 @@
 # Backend
-format-back:
+back-format:
 	cd backend && poetry run black . && poetry run isort .
 
-lint-back:
+back-lint:
 	cd backend && poetry run flake8 . && poetry run mypy .
 
-test-back:
+back-test:
 	cd backend && poetry run pytest
 
-dev-back:
+back-dev:
 	cd backend && poetry install && poetry run uvicorn src.main:app --reload --host 0.0.0.0 --port 8001
 
 # Frontend
-format-front:
+front-format:
 	cd frontend && npm run format
 
-lint-front:
+front-lint:
 	cd frontend && npm run lint
 
-build-front:
+front-build:
 	cd frontend && npm run build
 
-dev-front:
+front-dev:
 	cd frontend && npm install && npm run dev
+
+# Outbox
+outbox-dev:
+	cd outbox && go run cmd/outbox-worker/main.go
 
 # Other
 db:
 	docker compose --env-file .env up db
 
-dev-docker:
+docker-dev:
 	docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.docker up --build
 
 # Combined
-format: format-front format-back
-lint: lint-front lint-back
-test: test-back
+format: front-format back-format
+lint: front-lint back-lint
+test: back-test
 commit: format lint

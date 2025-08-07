@@ -4,10 +4,9 @@ interface MatchControlsProps {
   status: string;
   onPause: () => void;
   onResume: () => void;
-  onSync: () => void;
 }
 
-export function MatchControls({ status, onPause, onResume, onSync }: MatchControlsProps) {
+export function MatchControls({ status, onPause, onResume }: MatchControlsProps) {
   return (
     <>
       {/* Match Controls */}
@@ -15,9 +14,6 @@ export function MatchControls({ status, onPause, onResume, onSync }: MatchContro
         {status === "running" && <Button onClick={onPause}>Pause</Button>}
         {status === "idle" && <Button onClick={onResume}>Start</Button>}
         {status === "paused" && <Button onClick={onResume}>Resume</Button>}
-        <Button onClick={onSync} variant="outline">
-          Sync
-        </Button>
       </div>
     </>
   );

@@ -3,13 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  getTournaments, 
-  getCurrentTournament, 
-  setCurrentTournament, 
-  getTatamis, 
-  syncTournament,
-} from "@/lib/api";
+import { getTournaments, getCurrentTournament, setCurrentTournament, getTatamis, syncTournament } from "@/lib/api";
 import { Tournament } from "@/lib/interfaces";
 
 export default function SetupPage() {

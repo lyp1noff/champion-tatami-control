@@ -6,12 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Athlete, Bracket, BracketMatch } from "@/lib/interfaces";
-import { 
-  getCurrentTournament, 
-  getTournament, 
-  getBrackets, 
-  getMatches 
-} from "@/lib/api";
+import { getCurrentTournament, getTournament, getBrackets, getMatches } from "@/lib/api";
 import { Tournament } from "@/lib/interfaces";
 
 export default function TatamiSetupPage() {
@@ -61,7 +56,7 @@ export default function TatamiSetupPage() {
 
         // Filter brackets assigned to this tatami
         const assignedBrackets = data.filter(
-          (bracket: Bracket) => bracket.tatami && bracket.tatami.toString() === tatamiId
+          (bracket: Bracket) => bracket.tatami && bracket.tatami.toString() === tatamiId,
         );
 
         setBrackets(assignedBrackets);
@@ -78,27 +73,30 @@ export default function TatamiSetupPage() {
     }
   }, [selectedTournament, tatamiId]);
 
-  const fetchMatches = useCallback(async (bracketId: string) => {
-    try {
-      setLoading(true);
-      const data = await getMatches(bracketId);
+  const fetchMatches = useCallback(
+    async (bracketId: string) => {
+      try {
+        setLoading(true);
+        const data = await getMatches(bracketId);
 
-      const validMatches = data.filter(
-        (bracketMatch: BracketMatch) => {
+        const validMatches = data.filter((bracketMatch: BracketMatch) => {
           if (includeAllMatches) {
             return true;
           }
-          return bracketMatch.match.athlete1 && bracketMatch.match.athlete2 && bracketMatch.match.status === "not_started";
-        }
-      );
+          return (
+            bracketMatch.match.athlete1 && bracketMatch.match.athlete2 && bracketMatch.match.status === "not_started"
+          );
+        });
 
-      setMatches(validMatches);
-    } catch (error) {
-      console.error("Error fetching matches:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [includeAllMatches]);
+        setMatches(validMatches);
+      } catch (error) {
+        console.error("Error fetching matches:", error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [includeAllMatches],
+  );
 
   useEffect(() => {
     if (selectedBracket) {
@@ -204,25 +202,24 @@ export default function TatamiSetupPage() {
                   </Select>
 
                   <div className="flex items-center space-x-2 mt-4">
-                    <Checkbox 
-                      id="include-all-matches" 
+                    <Checkbox
+                      id="include-all-matches"
                       checked={includeAllMatches}
                       onCheckedChange={handleIncludeAllMatchesChange}
                     />
-                    <label 
-                      htmlFor="include-all-matches" 
+                    <label
+                      htmlFor="include-all-matches"
                       className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                     >
                       Include all matches (including incomplete or finished)
                     </label>
                   </div>
-                  
+
                   {matches.length === 0 && !loading && (
                     <p className="text-sm text-red-600 mt-1">
-                      {includeAllMatches 
-                        ? "No matches found in this bracket" 
-                        : "No valid matches found (all matches must have 2 participants)"
-                      }
+                      {includeAllMatches
+                        ? "No matches found in this bracket"
+                        : "No valid matches found (all matches must have 2 participants)"}
                     </p>
                   )}
                 </div>

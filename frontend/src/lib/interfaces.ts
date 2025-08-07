@@ -1,6 +1,6 @@
 export interface ExternalMatch {
   external_id: string;
-  round_type?: string;
+  bracket_display_name?: string;
   athlete1?: {
     id: number;
     first_name: string;
@@ -30,7 +30,7 @@ export interface ExternalMatch {
   };
   score_athlete1?: number;
   score_athlete2?: number;
-  status: "not_started" | "started" | "finished";
+  status: "not_started" | "started" | "in_progress" | "finished";
   started_at?: string;
   ended_at?: string;
 }

@@ -74,6 +74,10 @@ class MatchSchema(CustomBaseModel):
     ended_at: Optional[datetime]
 
 
+class MatchWithBracketSchema(MatchSchema):
+    bracket_display_name: str
+
+
 class BracketMatchSchema(CustomBaseModel):
     id: int
     external_id: str

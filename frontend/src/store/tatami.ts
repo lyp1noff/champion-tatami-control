@@ -6,7 +6,6 @@ export type TatamiState = {
   status: "idle" | "running" | "paused";
   startTimestamp: number | null;
   pausedElapsed: number;
-  elapsed: number;
   durationMs: number;
   score1: number;
   score2: number;
@@ -16,10 +15,7 @@ export type TatamiState = {
   setState: (partial: Partial<TatamiState>) => void;
   reset: () => void;
   setMatch: (match: ExternalMatch) => void;
-  start: () => void;
-  pause: () => void;
   setDuration: (durationMs: number) => void;
-  get remaining(): number;
 };
 
 export const useTatamiStore = create<TatamiState>()(
@@ -28,7 +24,6 @@ export const useTatamiStore = create<TatamiState>()(
       status: "idle",
       startTimestamp: null,
       pausedElapsed: 0,
-      elapsed: 0,
       durationMs: 60 * 1000, // 1 minute default
       score1: 0,
       score2: 0,
@@ -43,7 +38,6 @@ export const useTatamiStore = create<TatamiState>()(
           status: "idle",
           startTimestamp: null,
           pausedElapsed: 0,
-          elapsed: 0,
           durationMs: 60 * 1000,
           score1: 0,
           score2: 0,
@@ -64,7 +58,6 @@ export const useTatamiStore = create<TatamiState>()(
                 status: "idle",
                 startTimestamp: null,
                 pausedElapsed: 0,
-                elapsed: 0,
                 durationMs: 60 * 1000,
                 score1: 0,
                 score2: 0,
@@ -73,28 +66,10 @@ export const useTatamiStore = create<TatamiState>()(
               };
         }),
 
-      start: () =>
-        set((state) => ({
-          status: "running",
-          startTimestamp: Date.now(),
-          pausedElapsed: state.elapsed,
-        })),
-
-      pause: () =>
-        set((state) => ({
-          status: "paused",
-          elapsed: state.startTimestamp ? Date.now() - state.startTimestamp + state.pausedElapsed : state.elapsed,
-          startTimestamp: null,
-        })),
-
       setDuration: (durationMs: number) =>
         set({
           durationMs,
         }),
-
-      get remaining() {
-        return Math.max(0, this.durationMs - this.elapsed);
-      },
     }),
     {
       name: "tatami-storage",
@@ -102,7 +77,6 @@ export const useTatamiStore = create<TatamiState>()(
         status: state.status,
         startTimestamp: state.startTimestamp,
         pausedElapsed: state.pausedElapsed,
-        elapsed: state.elapsed,
         durationMs: state.durationMs,
         score1: state.score1,
         score2: state.score2,
@@ -110,6 +84,6 @@ export const useTatamiStore = create<TatamiState>()(
         shido2: state.shido2,
         currentMatch: state.currentMatch,
       }),
-    }
-  )
+    },
+  ),
 );
