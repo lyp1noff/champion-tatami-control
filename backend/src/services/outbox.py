@@ -1,13 +1,12 @@
 import json
-from typing import Optional, Any
-from datetime import datetime, timezone
+from typing import Any, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.models import Match, BracketMatch, OutboxItem, Athlete
 from src.config import EXTERNAL_API_URL
+from src.models import Athlete, BracketMatch, Match, OutboxItem
 
 
 async def get_tournament_id_for_match(match_id: int, db: AsyncSession) -> Optional[int]:

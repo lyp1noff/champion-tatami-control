@@ -9,15 +9,30 @@ export default function ScreenTatami() {
   const { id: tatamiId } = useParams();
   const [isHydrated, setIsHydrated] = useState(false);
 
-  const { status, startTimestamp, pausedElapsed, durationMs, score1, score2, shido1, shido2, currentMatch } =
+  const { status, startTimestamp, pausedElapsed, durationMs, score1, score2, shido1, shido2, senshu, currentMatch } =
     useTatamiStore();
-  const [localElapsed, setLocalElapsed] = useState(0); // Local timer state
+  const [localElapsed, setLocalElapsed] = useState(0);
+  const [scale, setScale] = useState(1);
 
   useEffect(() => {
     setIsHydrated(true);
   }, []);
 
-  // Watch for store changes using Zustand subscription
+  const [hasPlayedBeep, setHasPlayedBeep] = useState(false);
+
+  useEffect(() => {
+    if (status !== "running") {
+      setHasPlayedBeep(false);
+      return;
+    }
+
+    if (Math.floor((durationMs - localElapsed) / 100) === 150 && !hasPlayedBeep) {
+      const beep = new Audio("/beep.mp3");
+      beep.play().catch(() => {});
+      setHasPlayedBeep(true);
+    }
+  }, [localElapsed, durationMs, status, hasPlayedBeep]);
+
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === "tatami-storage") {
@@ -30,6 +45,15 @@ export default function ScreenTatami() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
+  useEffect(() => {
+    const updateScale = () => {
+      setScale(Math.min(window.innerWidth / 1920, window.innerHeight / 1080));
+    };
+    updateScale();
+    window.addEventListener("resize", updateScale);
+    return () => window.removeEventListener("resize", updateScale);
+  }, []);
+
   // Handle timer updates locally on screen
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -37,10 +61,10 @@ export default function ScreenTatami() {
       interval = setInterval(() => {
         const now = Date.now();
         const elapsed = pausedElapsed + (now - startTimestamp);
-        setLocalElapsed(elapsed); // Update local timer state
-      }, 16); // 60fps for smooth timer
+        setLocalElapsed(elapsed);
+      }, 16);
     } else {
-      setLocalElapsed(pausedElapsed); // Reset local timer when paused
+      setLocalElapsed(pausedElapsed);
     }
 
     return () => {
@@ -50,123 +74,188 @@ export default function ScreenTatami() {
     };
   }, [status, startTimestamp, pausedElapsed]);
 
-  const format = (ms: number) => {
+  const formatPartsArray = (ms: number): string[] => {
     const clamped = Math.max(0, ms);
-    const s = Math.floor(clamped / 1000);
-    const m = Math.floor(s / 60);
-    const remS = s % 60;
-    const remMS = Math.floor((clamped % 1000) / 10);
-    return `${String(m).padStart(2, "0")}:${String(remS).padStart(2, "0")}.${String(remMS).padStart(2, "0")}`;
+    const totalSeconds = Math.floor(clamped / 1000);
+    const minutes = String(Math.floor(totalSeconds / 60)).padStart(1, "0");
+    const seconds = String(totalSeconds % 60).padStart(2, "0");
+    const centiseconds = String(Math.floor((clamped % 1000) / 10)).padStart(2, "0");
+
+    return [...minutes, ":", ...seconds, ".", ...centiseconds];
   };
 
   // Use local elapsed time for display
   const remaining = Math.max(0, durationMs - localElapsed);
-  const remainingProgress = Math.max(0, Math.min(100, (remaining / durationMs) * 100));
 
-  const renderDots = (count: number) => (
-    <div className="flex gap-2 justify-center mt-3">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          className={`w-20 h-10 rounded-full border-2 transition-colors duration-200 ${
-            i < count ? "bg-red-500 border-red-500" : "border-white/50"
-          }`}
-        />
-      ))}
-    </div>
-  );
+  const renderDots = (count: number) => {
+    const labels = ["C1", "C2", "C3", "HC", "H"];
+
+    return (
+      <div className="flex gap-2 justify-center mt-3">
+        {labels.map((label, i) => {
+          const isActive = i < count;
+          const isLast = i === labels.length - 1;
+
+          const bgClass = isActive
+            ? isLast
+              ? "bg-red-500 border-red-500 text-black"
+              : "bg-[var(--champion-yellow)] border-[var(--champion-yellow)] text-black"
+            : "border-white/50 text-white/50";
+
+          return (
+            <div
+              key={i}
+              className={`w-22 h-12 rounded-full border-2 flex items-center justify-center font-semibold text-4xl transition-colors duration-200 ${bgClass}`}
+            >
+              {label}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const getTimerColor = () => {
-    if (status === "paused" && remaining > 0) return "text-yellow-400";
-    if (remaining <= 10000) return "text-red-500";
+    if (status === "paused" && remaining > 0) return "text-[var(--champion-yellow)]";
+    if (remaining <= 15000) return "text-red-500";
     return "text-white";
   };
 
+  const chars = formatPartsArray(remaining);
+
   return (
-    <div className="w-screen h-screen bg-black text-white p-8 flex flex-col relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="w-full h-full bg-gradient-to-r from-blue-500 to-red-500"></div>
-      </div>
+    <div className="w-screen h-screen bg-black text-white flex flex-col relative overflow-hidden">
+      <div
+        className="absolute left-1/2 top-1/2 origin-center"
+        style={{
+          width: "1920px",
+          height: "1080px",
+          transform: `translate(-50%, -50%) scale(${scale})`,
+        }}
+      >
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-15">
+          <div className="w-full h-full bg-gradient-to-r from-blue-500 to-red-500"></div>
+        </div>
 
-      {/* Center Logo */}
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 drop-shadow-[0_0_10px_rgba(0,0,0,1)]">
-        <Image
-          src="/champ_logo.svg"
-          alt="Champion Logo"
-          width={0}
-          height={0}
-          priority
-          style={{ width: "320px", height: "auto" }}
-        />
-      </div>
+        {/* Center Logo */}
+        <div className="absolute flex bottom-1/20 left-1/2 transform -translate-x-1/2 z-10 opacity-10 drop-shadow-[0_0_10px_rgba(0,0,0,1)]">
+          <div className="px-8 flex flex-col items-center">
+            <span className="text-xl font-semibold text-[var(--champion-yellow)] text-center pb-2">
+              ЦФСН {'"'}ІППОН{'"'}
+              <br />
+              ВІДДІЛЕННЯ КАРАТЕ
+            </span>
+            <Image
+              src="/champ_logo.svg"
+              alt="Champion Logo"
+              width={0}
+              height={0}
+              priority
+              style={{ width: "160px", height: "auto" }}
+            />
+          </div>
+          <Image
+            src="/champ_ippon.png"
+            alt="Champion Ippon Logo"
+            width={240}
+            height={240}
+            priority
+            className="object-contain"
+            // style={{ width: "160px", height: "auto" }}
+          />
+        </div>
 
-      {/* Bracket Name - Top Left */}
-      <div className="absolute top-8 left-8 text-4xl font-bold text-gray-300 z-10">
-        {currentMatch?.bracket_display_name || ""}
-      </div>
+        {/* Bracket Name - Top Left */}
+        <div className="absolute top-8 left-8 text-4xl font-bold text-gray-300 z-10">
+          {currentMatch?.bracket_display_name || ""}
+        </div>
 
-      {/* Tatami Number - Top Right */}
-      <div className="absolute top-8 right-8 text-4xl font-bold text-gray-300 z-10">TATAMI {tatamiId}</div>
+        {/* Tatami Number - Top Right */}
+        <div className="absolute top-8 right-8 text-4xl font-bold text-gray-300 z-10">TATAMI {tatamiId}</div>
 
-      {isHydrated && currentMatch && currentMatch?.status !== "finished" && (
-        <>
-          {/* Timer Display - Top Center */}
-          <div className="absolute top-1/10 left-1/2 transform -translate-x-1/2 text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
-            <div className={`text-8xl font-mono tracking-wider font-bold mb-2 ${getTimerColor()}`}>
-              {format(remaining)}
-            </div>
+        {isHydrated && currentMatch && currentMatch?.status !== "finished" && (
+          <>
+            {/* Timer Display - Top Center */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
+              <div className={`text-[14rem] font-mono tracking-tight font-bold ${getTimerColor()}`}>
+                {chars.map((ch, i) => {
+                  const isCenti = i >= chars.length - 2;
+                  return (
+                    <span
+                      key={i}
+                      className={ch === ":" || ch === "." ? "mx-[-30px]" : isCenti ? "text-[8rem]" : "px-0"}
+                    >
+                      {ch}
+                    </span>
+                  );
+                })}
+              </div>
 
-            {/* Progress Bar */}
-            <div className="w-128 h-4 bg-gray-800 rounded-full overflow-hidden mx-auto mb-2">
-              <div
-                className={`h-full ${remaining < 10000 ? "bg-red-500" : "bg-gray-300"}`}
-                style={{ width: `${remainingProgress}%` }}
-              ></div>
-            </div>
+              {/* Progress Bar */}
+              {/* <div className="w-128 h-4 bg-gray-800 rounded-full overflow-hidden mx-auto mb-2">
+                <div
+                  className={`h-full ${remaining < 15000 ? "bg-red-500" : "bg-gray-300"}`}
+                  style={{ width: `${remainingProgress}%` }}
+                ></div>
+              </div> */}
 
-            {/* Duration Info */}
-            <div className="text-lg text-gray-400">
+              {/* Duration Info */}
+              {/* <div className="text-lg text-gray-400">
               {Math.floor(durationMs / (60 * 1000))}:
               {String(Math.floor((durationMs % (60 * 1000)) / 1000)).padStart(2, "0")}.
               {String(Math.floor((durationMs % 1000) / 10)).padStart(2, "0")} match
+            </div> */}
             </div>
-          </div>
 
-          {/* Score Display - Fighter 1 (25% from left edge) */}
-          <div className="absolute top-1/2 left-1/4 transform -translate-x-1/2 -translate-y-1/2 text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
-            <div className="text-[12rem] font-bold text-blue-500 leading-none mb-10">{score2}</div>
-            {renderDots(shido2)}
-          </div>
-
-          {/* Name Display - Fighter 1 (25% from left edge, lower) */}
-          <div className="absolute top-7/8 left-1/4 transform -translate-x-1/2 -translate-y-1/2 text-center z-10">
-            <div className="text-5xl max-w-xl break-words leading-tight drop-shadow-[0_0_10px_rgba(0,0,0,0.7)]">
-              {currentMatch?.athlete2
-                ? `${currentMatch.athlete2.first_name} ${currentMatch.athlete2.last_name} (${currentMatch.athlete2.coaches_last_name})`
-                : "FIGHTER 1"}
+            {/* Score Display - Fighter 1 (25% from left edge) */}
+            <div className="absolute top-1/2 left-1/6 transform -translate-x-1/2 -translate-y-1/2 text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
+              <div className="text-[20rem] font-bold text-blue-500 leading-none">{score2}</div>
+              {renderDots(shido2)}
             </div>
-          </div>
 
-          {/* Score Display - Fighter 2 (25% from right edge) */}
-          <div className="absolute top-1/2 right-1/4 transform translate-x-1/2 -translate-y-1/2 text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
-            <div className="text-[12rem] font-bold text-red-500 leading-none mb-10">{score1}</div>
-            {renderDots(shido1)}
-          </div>
-
-          {/* Name Display - Fighter 2 (25% from right edge, lower) */}
-          <div className="absolute top-7/8 right-1/4 transform translate-x-1/2 -translate-y-1/2 text-center z-10">
-            <div className="text-5xl max-w-xl break-words leading-tight drop-shadow-[0_0_10px_rgba(0,0,0,0.7)]">
-              {currentMatch?.athlete1
-                ? `${currentMatch.athlete1.first_name} ${currentMatch.athlete1.last_name} (${currentMatch.athlete1.coaches_last_name})`
-                : "FIGHTER 2"}
+            {/* Seshu - Fighter 1 */}
+            <div className="absolute top-1/3 left-30 transform text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors duration-200 ${senshu === 2 ? "bg-green-500" : ""}`}
+              ></div>
             </div>
-          </div>
-        </>
-      )}
 
-      {/* Debug info */}
-      {/* {isHydrated && (
+            {/* Name Display - Fighter 1 (25% from left edge, lower) */}
+            <div className="absolute top-7/8 left-1/6 transform -translate-x-1/2 -translate-y-1/2 text-center z-10">
+              <div className="text-5xl max-w-xl break-words leading-tight drop-shadow-[0_0_10px_rgba(0,0,0,0.7)]">
+                {currentMatch?.athlete2
+                  ? `${currentMatch.athlete2.first_name} ${currentMatch.athlete2.last_name} (${currentMatch.athlete2.coaches_last_name})`
+                  : "FIGHTER 1"}
+              </div>
+            </div>
+
+            {/* Score Display - Fighter 2 (25% from right edge) */}
+            <div className="absolute top-1/2 right-1/6 transform translate-x-1/2 -translate-y-1/2 text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
+              <div className="text-[20rem] font-bold text-red-500 leading-none">{score1}</div>
+              {renderDots(shido1)}
+            </div>
+
+            {/* Seshu - Fighter 2 */}
+            <div className="absolute top-1/3 right-30 transform text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors duration-200 ${senshu === 1 ? "bg-green-500" : ""}`}
+              ></div>
+            </div>
+
+            {/* Name Display - Fighter 2 (25% from right edge, lower) */}
+            <div className="absolute top-7/8 right-1/6 transform translate-x-1/2 -translate-y-1/2 text-center z-10">
+              <div className="text-5xl max-w-xl break-words leading-tight drop-shadow-[0_0_10px_rgba(0,0,0,0.7)]">
+                {currentMatch?.athlete1
+                  ? `${currentMatch.athlete1.first_name} ${currentMatch.athlete1.last_name} (${currentMatch.athlete1.coaches_last_name})`
+                  : "FIGHTER 2"}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Debug info */}
+        {/* {isHydrated && (
         <div className="absolute bottom-4 left-4 text-xs text-gray-500 z-20 bg-black/50 p-2 rounded">
           <div>Status: {status}</div>
           <div>Match: {currentMatch?.external_id || "none"}</div>
@@ -180,8 +269,9 @@ export default function ScreenTatami() {
         </div>
       )} */}
 
-      {/* Connection Status */}
-      {/* <div className="absolute bottom-4 left-4 text-xs text-gray-500">Connected via BroadcastChannel</div> */}
+        {/* Connection Status */}
+        {/* <div className="absolute bottom-4 left-4 text-xs text-gray-500">Connected via BroadcastChannel</div> */}
+      </div>
     </div>
   );
 }

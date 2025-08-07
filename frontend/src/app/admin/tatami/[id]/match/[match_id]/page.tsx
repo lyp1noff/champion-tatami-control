@@ -12,6 +12,7 @@ import { TimeAdjustment } from "./components/TimeAdjustment";
 import { FinishMatchDialog } from "./components/FinishMatchDialog";
 import { StartMatchDialog } from "./components/StartMatchDialog";
 import { getMatch, startMatch as startMatchApi, finishMatch as finishMatchApi, updateScores } from "@/lib/api";
+import { TimeSetting } from "./components/TimeSetting";
 
 export default function ManageTatami() {
   const { id: tatamiId, match_id } = useParams();
@@ -24,6 +25,7 @@ export default function ManageTatami() {
     score2,
     shido1,
     shido2,
+    senshu,
     currentMatch,
     setState,
     reset,
@@ -33,7 +35,9 @@ export default function ManageTatami() {
   const [isHydrated, setIsHydrated] = useState(false);
   const [timeAdjustInput, setTimeAdjustInput] = useState({ minutes: 0, seconds: 0, milliseconds: 0 });
   const [showTimeAdjustDialog, setShowTimeAdjustDialog] = useState(false);
-  const [localElapsed, setLocalElapsed] = useState(0); // Local timer state
+  const [timeSettingInput, setTimeSettingInput] = useState({ minutes: 1, seconds: 0 });
+  const [showTimeSettingDialog, setShowTimeSettingDialog] = useState(false);
+  const [localElapsed, setLocalElapsed] = useState(0);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -96,10 +100,26 @@ export default function ManageTatami() {
     }
   }, [startTimestamp, pausedElapsed, setState]);
 
-  const resume = () => {
+  const resume = useCallback(() => {
     const now = Date.now();
     setState({ status: "running", startTimestamp: now });
-  };
+  }, [setState]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (status === "idle" || status === "paused") {
+          resume();
+        } else {
+          pause();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [status, resume, pause]);
 
   const adjustScore = async (fighter: 1 | 2, delta: number) => {
     if (!currentMatch) {
@@ -125,6 +145,10 @@ export default function ManageTatami() {
     setState({ [`shido${fighter}`]: newShido });
   };
 
+  const setSenshu = (fighter_or_zero: 0 | 1 | 2) => {
+    setState({ senshu: fighter_or_zero });
+  };
+
   const formatRemainingForInput = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -146,6 +170,20 @@ export default function ManageTatami() {
     }
     adjustRemainingTime(timeAdjustInput.minutes, timeAdjustInput.seconds, timeAdjustInput.milliseconds);
     setShowTimeAdjustDialog(false);
+  };
+
+  const saveTimeSetting = () => {
+    if (timeSettingInput.minutes < 0 || timeSettingInput.seconds < 0 || timeSettingInput.seconds > 59) {
+      alert("Invalid time values");
+      return;
+    }
+    setDurationTime(timeSettingInput.minutes, timeSettingInput.seconds);
+    setShowTimeSettingDialog(false);
+  };
+
+  const setDurationTime = (minutes: number, seconds: number) => {
+    const newDuration = (minutes * 60 + seconds) * 1000;
+    setState({ durationMs: newDuration });
   };
 
   const adjustRemainingTime = (minutes: number, seconds: number, milliseconds: number) => {
@@ -201,6 +239,10 @@ export default function ManageTatami() {
     setTimeAdjustInput((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleTimeSettingInputChange = (field: "minutes" | "seconds", value: number) => {
+    setTimeSettingInput((prev) => ({ ...prev, [field]: value }));
+  };
+
   if (!isHydrated) {
     return (
       <div className="p-4 space-y-4 max-w-4xl mx-auto">
@@ -226,7 +268,7 @@ export default function ManageTatami() {
           className={`px-3 py-1 rounded-full text-sm font-medium ${
             currentMatch?.status === "not_started"
               ? "bg-gray-100 text-gray-800"
-              : currentMatch?.status === "in_progress"
+              : currentMatch?.status === "in_progress" || currentMatch?.status === "started"
                 ? "bg-green-100 text-green-800"
                 : "bg-red-100 text-red-800"
           }`}
@@ -254,8 +296,10 @@ export default function ManageTatami() {
             score2={score2}
             shido1={shido1}
             shido2={shido2}
+            senshu={senshu}
             onAdjustScore={adjustScore}
             onSetShido={setShido}
+            onSetSenshu={setSenshu}
           />
 
           <TimeAdjustment
@@ -265,6 +309,14 @@ export default function ManageTatami() {
             onTimeAdjustInputChange={handleTimeAdjustInputChange}
             onShowTimeAdjustDialogChange={setShowTimeAdjustDialog}
             onSaveTimeAdjustment={saveTimeAdjustment}
+          />
+
+          <TimeSetting
+            timeSettingInput={timeSettingInput}
+            showTimeSettingDialog={showTimeSettingDialog}
+            onTimeSettingInputChange={handleTimeSettingInputChange}
+            onShowTimeSettingDialogChange={setShowTimeSettingDialog}
+            onSaveTimeSetting={saveTimeSetting}
           />
 
           <FinishMatchDialog currentMatch={currentMatch} score1={score1} score2={score2} onFinishMatch={finishMatch} />

@@ -3,10 +3,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.services.serialize import serialize_bracket_match
-from src.models import Bracket, BracketMatch, Match
 from src.database import get_db
+from src.models import Bracket, BracketMatch, Match
 from src.schemas import BracketMatchSchema
+from src.services.serialize import serialize_bracket_match
 
 router = APIRouter(
     prefix="/brackets",

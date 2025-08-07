@@ -41,9 +41,7 @@ export function TimeAdjustment({
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Adjust Remaining Time</DialogTitle>
-              <DialogDescription>
-                Set the remaining time for the match. This can only be done when the match is paused.
-              </DialogDescription>
+              <DialogDescription>Set the remaining time for the match.</DialogDescription>
             </DialogHeader>
             <div className="flex items-center gap-2 justify-center py-4">
               <input

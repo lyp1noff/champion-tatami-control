@@ -11,6 +11,7 @@ export type TatamiState = {
   score2: number;
   shido1: number;
   shido2: number;
+  senshu: number;
   currentMatch: ExternalMatch | null;
   setState: (partial: Partial<TatamiState>) => void;
   reset: () => void;
@@ -29,6 +30,7 @@ export const useTatamiStore = create<TatamiState>()(
       score2: 0,
       shido1: 0,
       shido2: 0,
+      senshu: 0,
       currentMatch: null,
 
       setState: (partial) => set(partial),
@@ -43,6 +45,7 @@ export const useTatamiStore = create<TatamiState>()(
           score2: 0,
           shido1: 0,
           shido2: 0,
+          senshu: 0,
           currentMatch: null,
         }),
 
@@ -63,6 +66,7 @@ export const useTatamiStore = create<TatamiState>()(
                 score2: 0,
                 shido1: 0,
                 shido2: 0,
+                senshu: 0,
               };
         }),
 
@@ -82,6 +86,7 @@ export const useTatamiStore = create<TatamiState>()(
         score2: state.score2,
         shido1: state.shido1,
         shido2: state.shido2,
+        senshu: state.senshu,
         currentMatch: state.currentMatch,
       }),
     },

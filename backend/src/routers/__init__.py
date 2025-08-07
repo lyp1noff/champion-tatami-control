@@ -1,10 +1,10 @@
 from . import (
+    brackets,
     external,
+    match_state,
+    matches,
     settings,
     tournaments,
-    brackets,
-    matches,
-    match_state,
 )
 
 routers = [

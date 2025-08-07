@@ -7,8 +7,10 @@ interface FighterControlsProps {
   score2: number;
   shido1: number;
   shido2: number;
+  senshu: number;
   onAdjustScore: (fighter: 1 | 2, delta: number) => void;
   onSetShido: (fighter: 1 | 2, value: number) => void;
+  onSetSenshu: (fighter_or_zero: 0 | 1 | 2) => void;
 }
 
 export function FighterControls({
@@ -17,8 +19,10 @@ export function FighterControls({
   score2,
   shido1,
   shido2,
+  senshu,
   onAdjustScore,
   onSetShido,
+  onSetSenshu,
 }: FighterControlsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -30,13 +34,24 @@ export function FighterControls({
 
         return (
           <div key={id} className="border rounded-lg p-4">
-            <h3 className="font-semibold text-lg mb-3">{athleteName}</h3>
+            <h3 className={`font-semibold text-xl mb-2 ${id === 1 ? "text-red-500" : "text-blue-500"}`}>
+              {athleteName}
+            </h3>
 
             {/* Score */}
             <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">
-                Score: <span className="font-bold text-lg">{id === 1 ? score1 : score2}</span>
-              </p>
+              <div className="flex flex-row pb-2">
+                <Button
+                  variant="outline"
+                  onClick={() => onSetSenshu(senshu === id ? 0 : (id as 1 | 2))}
+                  className={`size-sm w-10 transition-color ${
+                    senshu === id ? "bg-green-500 hover:bg-green-600" : "bg-transparent"
+                  }`}
+                >
+                  S
+                </Button>
+                <p className="ml-2 text-lg font-bold flex items-center">Score: {id === 1 ? score1 : score2}</p>
+              </div>
               <div className="flex flex-col gap-2">
                 {/* Plus buttons */}
                 <div className="flex gap-2 justify-center">

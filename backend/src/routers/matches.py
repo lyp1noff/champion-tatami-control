@@ -1,14 +1,15 @@
 from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.services.serialize import serialize_match_with_bracket
-from src.services.outbox import create_match_start_outbox, create_match_finish_outbox, create_match_scores_outbox
-from src.models import Match, BracketMatch
 from src.database import get_db
-from src.schemas import UpdateMatchScoresSchema, FinishMatchSchema, MatchWithBracketSchema
+from src.models import BracketMatch, Match
+from src.schemas import FinishMatchSchema, MatchWithBracketSchema, UpdateMatchScoresSchema
+from src.services.outbox import create_match_finish_outbox, create_match_scores_outbox, create_match_start_outbox
+from src.services.serialize import serialize_match_with_bracket
 
 router = APIRouter(
     prefix="/matches",
@@ -57,7 +58,6 @@ async def start_match(match_id: str, db: AsyncSession = Depends(get_db)) -> dict
 
     await db.commit()
 
-    print(f"Starting match: {match_id}")
     return {"message": f"Match {match_id} started successfully"}
 
 
@@ -119,9 +119,6 @@ async def finish_match(match_id: str, finish_data: FinishMatchSchema, db: AsyncS
 
     await db.commit()
 
-    print(
-        f"Finishing match: {match_id} with scores {finish_data.score_athlete1}-{finish_data.score_athlete2}, winner: {finish_data.winner_id}"
-    )
     return {
         "message": f"Match {match_id} finished successfully",
         "score_athlete1": finish_data.score_athlete1,
@@ -156,9 +153,6 @@ async def update_match_scores(
 
     await db.commit()
 
-    print(
-        f"Updating scores for match {match_id}: athlete1={scores_data.score_athlete1}, athlete2={scores_data.score_athlete2}"
-    )
     return {
         "message": f"Scores updated for match {match_id}",
         "score_athlete1": match.score_athlete1,

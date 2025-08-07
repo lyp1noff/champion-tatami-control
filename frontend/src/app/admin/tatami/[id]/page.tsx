@@ -104,13 +104,36 @@ export default function TatamiSetupPage() {
     }
   }, [fetchMatches, selectedBracket]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem("selectedBracket");
+    if (saved) {
+      setSelectedBracket(saved);
+      fetchMatches(saved);
+    }
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "selectedBracket") {
+        const v = e.newValue ?? "";
+        setSelectedBracket(v);
+        setSelectedMatch(null);
+        setMatches([]);
+        if (v) fetchMatches(v);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [fetchMatches]);
+
   const handleBracketChange = (bracketId: string) => {
     setSelectedBracket(bracketId);
     setSelectedMatch(null);
     setMatches([]);
 
     if (bracketId) {
+      localStorage.setItem("selectedBracket", bracketId);
       fetchMatches(bracketId);
+    } else {
+      localStorage.removeItem("selectedBracket");
     }
   };
 

@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.models import MatchState, Match
 from src.database import get_db
-from src.schemas import MatchStateSchema, CreateMatchStateSchema, UpdateMatchStateSchema
+from src.models import Match, MatchState
+from src.schemas import CreateMatchStateSchema, MatchStateSchema, UpdateMatchStateSchema
 
 router = APIRouter(
     prefix="/match-states",
