@@ -33,7 +33,7 @@ db:
 	docker compose --env-file .env up db
 
 docker-dev:
-	docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.docker up --build
+	docker compose -f docker-compose.yml --env-file .env.docker up --build && docker compose down
 
 # Combined
 format: front-format back-format

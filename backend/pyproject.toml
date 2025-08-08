@@ -14,6 +14,7 @@ dependencies = [
     "sqlalchemy[asyncio] (>=2.0.42,<3.0.0)",
     "dotenv (>=0.9.9,<0.10.0)",
     "httpx (>=0.28.1,<0.29.0)",
+    "gunicorn (>=23.0.0,<24.0.0)",
 ]
 
 
