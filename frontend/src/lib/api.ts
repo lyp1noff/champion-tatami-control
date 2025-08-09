@@ -7,10 +7,10 @@ import {
   BracketMatch,
 } from "./interfaces";
 
-const API_BASE_URL = "http://localhost:8001/api";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL as string;
 
 export async function getMatch(matchId: string): Promise<ExternalMatch> {
-  const response = await fetch(`${API_BASE_URL}/matches/${matchId}`);
+  const response = await fetch(`${BACKEND_URL}/matches/${matchId}`);
   if (!response.ok) {
     throw new Error("Failed to fetch match data");
   }
@@ -18,7 +18,7 @@ export async function getMatch(matchId: string): Promise<ExternalMatch> {
 }
 
 export async function startMatch(matchId: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/matches/${matchId}/start`, {
+  const response = await fetch(`${BACKEND_URL}/matches/${matchId}/start`, {
     method: "POST",
   });
   if (!response.ok) {
@@ -32,7 +32,7 @@ export async function finishMatch(
   scoreAthlete2: number,
   winnerId: number,
 ): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/matches/${matchId}/finish`, {
+  const response = await fetch(`${BACKEND_URL}/matches/${matchId}/finish`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -49,7 +49,7 @@ export async function finishMatch(
 }
 
 export async function updateScores(matchId: string, scoreAthlete1: number, scoreAthlete2: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/matches/${matchId}/scores`, {
+  const response = await fetch(`${BACKEND_URL}/matches/${matchId}/scores`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -66,7 +66,7 @@ export async function updateScores(matchId: string, scoreAthlete1: number, score
 
 // Setup API functions
 export async function getTournaments(): Promise<Tournament[]> {
-  const response = await fetch(`${API_BASE_URL}/external/tournaments`);
+  const response = await fetch(`${BACKEND_URL}/external/tournaments`);
   if (!response.ok) {
     throw new Error("Failed to fetch tournaments");
   }
@@ -75,7 +75,7 @@ export async function getTournaments(): Promise<Tournament[]> {
 }
 
 export async function getCurrentTournament(): Promise<CurrentTournamentResponse> {
-  const response = await fetch(`${API_BASE_URL}/settings/current-tournament`);
+  const response = await fetch(`${BACKEND_URL}/settings/current-tournament`);
   if (!response.ok) {
     throw new Error("Failed to fetch current tournament");
   }
@@ -83,7 +83,7 @@ export async function getCurrentTournament(): Promise<CurrentTournamentResponse>
 }
 
 export async function setCurrentTournament(tournamentId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/settings/current-tournament`, {
+  const response = await fetch(`${BACKEND_URL}/settings/current-tournament`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -96,7 +96,7 @@ export async function setCurrentTournament(tournamentId: number): Promise<void> 
 }
 
 export async function getTatamis(tournamentId: number): Promise<TatamisResponse> {
-  const response = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}/tatamis`);
+  const response = await fetch(`${BACKEND_URL}/tournaments/${tournamentId}/tatamis`);
   if (!response.ok) {
     throw new Error("Failed to fetch available tatamis");
   }
@@ -105,7 +105,7 @@ export async function getTatamis(tournamentId: number): Promise<TatamisResponse>
 }
 
 export async function syncTournament(tournamentId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}/sync`, {
+  const response = await fetch(`${BACKEND_URL}/tournaments/${tournamentId}/sync`, {
     method: "POST",
   });
   if (!response.ok) {
@@ -114,7 +114,7 @@ export async function syncTournament(tournamentId: number): Promise<void> {
 }
 
 // export async function getOutboxStatus(): Promise<any> {
-//   const response = await fetch(`${API_BASE_URL}/outbox/status`);
+//   const response = await fetch(`${BACKEND_URL}/outbox/status`);
 //   if (!response.ok) {
 //     throw new Error("Failed to fetch outbox status");
 //   }
@@ -123,7 +123,7 @@ export async function syncTournament(tournamentId: number): Promise<void> {
 
 // Tatami API functions
 export async function getTournament(tournamentId: string): Promise<Tournament> {
-  const response = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}`);
+  const response = await fetch(`${BACKEND_URL}/tournaments/${tournamentId}`);
   if (!response.ok) {
     throw new Error("Failed to fetch tournament");
   }
@@ -131,7 +131,7 @@ export async function getTournament(tournamentId: string): Promise<Tournament> {
 }
 
 export async function getBrackets(tournamentId: string): Promise<Bracket[]> {
-  const response = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}/brackets`);
+  const response = await fetch(`${BACKEND_URL}/tournaments/${tournamentId}/brackets`);
   if (!response.ok) {
     throw new Error("Failed to fetch brackets");
   }
@@ -139,7 +139,7 @@ export async function getBrackets(tournamentId: string): Promise<Bracket[]> {
 }
 
 export async function getMatches(bracketId: string): Promise<BracketMatch[]> {
-  const response = await fetch(`${API_BASE_URL}/brackets/${bracketId}/matches`);
+  const response = await fetch(`${BACKEND_URL}/brackets/${bracketId}/matches`);
   if (!response.ok) {
     throw new Error("Failed to fetch matches");
   }
