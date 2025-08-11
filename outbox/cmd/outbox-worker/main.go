@@ -43,8 +43,8 @@ func main() {
 	defer pool.Close()
 
 	loggerInstance.Info("Successfully connected to database")
-	loggerInstance.Debug("Configuration: interval=%v, batch_size=%d, http_timeout=%v, max_retries=%d, log_level=%s",
-		cfg.ProcessingInterval, cfg.BatchSize, cfg.HTTPTimeout, cfg.MaxRetries, cfg.LogLevel)
+	loggerInstance.Debug("Configuration: interval=%v, batch_size=%d, http_timeout=%v, log_level=%s",
+		cfg.ProcessingInterval, cfg.BatchSize, cfg.HTTPTimeout, cfg.LogLevel)
 
 	// Initialize components
 	repo := database.NewOutboxRepository(pool, loggerInstance)

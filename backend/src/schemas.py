@@ -87,47 +87,6 @@ class BracketMatchSchema(CustomBaseModel):
     next_slot: Optional[int] = None
 
 
-class MatchStateSchema(CustomBaseModel):
-    id: int
-    external_match_id: str
-    status: str
-    start_timestamp: Optional[datetime]
-    paused_elapsed: int
-    elapsed: int
-    duration_ms: int
-    score1: int
-    score2: int
-    shido1: int
-    shido2: int
-    created_at: datetime
-    updated_at: datetime
-
-
-class CreateMatchStateSchema(BaseModel):
-    external_match_id: str
-    status: str = "idle"
-    start_timestamp: Optional[datetime] = None
-    paused_elapsed: int = 0
-    elapsed: int = 0
-    duration_ms: int = 60000
-    score1: int = 0
-    score2: int = 0
-    shido1: int = 0
-    shido2: int = 0
-
-
-class UpdateMatchStateSchema(BaseModel):
-    status: Optional[str] = None
-    start_timestamp: Optional[datetime] = None
-    paused_elapsed: Optional[int] = None
-    elapsed: Optional[int] = None
-    duration_ms: Optional[int] = None
-    score1: Optional[int] = None
-    score2: Optional[int] = None
-    shido1: Optional[int] = None
-    shido2: Optional[int] = None
-
-
 class UpdateMatchScoresSchema(BaseModel):
     score_athlete1: Optional[int] = None
     score_athlete2: Optional[int] = None

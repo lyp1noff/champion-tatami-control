@@ -3,6 +3,7 @@ package http
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -32,20 +33,29 @@ func NewHTTPClient(config *config.Config, logger *logger.Logger) *HTTPClient {
 
 // SendRequest sends an HTTP request for an outbox item
 func (c *HTTPClient) SendRequest(item database.OutboxItem) error {
-	c.logger.Debug("Sending %s request to: %s", item.Method, item.Endpoint)
-	c.logger.Debug("Payload: %s", item.Payload)
+	c.logger.Debug("Sending %s %s", item.Method, item.Endpoint)
+	if item.Payload != nil {
+		c.logger.Debug("Payload: %s", *item.Payload)
+	} else {
+		c.logger.Debug("Payload: <nil>")
+	}
 
-	req, err := http.NewRequest(item.Method, item.Endpoint, bytes.NewBufferString(item.Payload))
+	var body io.Reader
+	if item.Payload != nil {
+		body = bytes.NewBufferString(*item.Payload)
+	}
+
+	req, err := http.NewRequest(item.Method, item.Endpoint, body)
 	if err != nil {
 		c.logger.Error("Failed to create request for item %d: %v", item.ID, err)
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
-		c.logger.Debug("Added Bearer token to request for item %d", item.ID)
 	}
 
 	start := time.Now()

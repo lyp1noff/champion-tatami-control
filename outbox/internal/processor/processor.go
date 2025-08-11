@@ -25,57 +25,9 @@ func NewOutboxProcessor(repo *database.OutboxRepository, httpClient *http.HTTPCl
 	}
 }
 
-// ProcessBatch processes a batch of outbox items
-func (p *OutboxProcessor) ProcessBatch(ctx context.Context, batchSize int) error {
-	p.logger.Debug("Starting batch processing with size: %d", batchSize)
-
-	items, err := p.repo.GetPendingItems(ctx, batchSize)
-	if err != nil {
-		p.logger.Error("Failed to get pending items: %v", err)
-		return err
-	}
-
-	if len(items) == 0 {
-		p.logger.Debug("No pending items to process")
-		return nil
-	}
-
-	p.logger.Info("Processing %d items", len(items))
-
-	successCount := 0
-	failureCount := 0
-
-	for _, item := range items {
-		p.logger.Debug("Processing item %d (retry %d/%d)", item.ID, item.RetryCount+1, item.MaxRetries)
-
-		err := p.httpClient.SendRequest(item)
-
-		status := "success"
-		var errMsg *string
-
-		if err != nil {
-			status = "failed"
-			s := err.Error()
-			errMsg = &s
-			failureCount++
-			p.logger.Error("Item %d processing failed: %v", item.ID, err)
-		} else {
-			successCount++
-			p.logger.Debug("Item %d processing successful", item.ID)
-		}
-
-		if updateErr := p.repo.UpdateItemStatus(ctx, item.ID, status, errMsg); updateErr != nil {
-			p.logger.Error("Failed to update status for item %d: %v", item.ID, updateErr)
-		}
-	}
-
-	p.logger.Info("Batch processing completed. Success: %d, Failures: %d", successCount, failureCount)
-	return nil
-}
-
 // Run starts the continuous processing loop
-func (p *OutboxProcessor) Run(ctx context.Context, interval time.Duration, batchSize int) {
-	p.logger.Info("Starting outbox processor with interval: %v, batch size: %d", interval, batchSize)
+func (p *OutboxProcessor) Run(ctx context.Context, interval time.Duration, _ int) {
+	p.logger.Info("Starting outbox processor with interval: %v", interval)
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -86,8 +38,25 @@ func (p *OutboxProcessor) Run(ctx context.Context, interval time.Duration, batch
 			p.logger.Info("Context cancelled, stopping processor")
 			return
 		case <-ticker.C:
-			if err := p.ProcessBatch(ctx, batchSize); err != nil {
-				p.logger.Error("Error in batch processing: %v", err)
+			item, err := p.repo.ClaimNext(ctx)
+			if err != nil {
+				p.logger.Error("ClaimNext error: %v", err)
+				continue
+			}
+			if item == nil {
+				p.logger.Debug("Queue empty")
+				continue
+			}
+
+			if err := p.httpClient.SendRequest(*item); err != nil {
+				p.logger.Error("Item %d failed: %v", item.ID, err)
+				_ = p.repo.MarkFailure(ctx, item.ID, err.Error())
+				time.Sleep(10 * time.Second)
+				continue
+			}
+
+			if err := p.repo.MarkSuccess(ctx, item.ID); err != nil {
+				p.logger.Error("MarkSuccess error for item %d: %v", item.ID, err)
 			}
 		}
 	}

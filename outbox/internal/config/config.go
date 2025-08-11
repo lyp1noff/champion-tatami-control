@@ -14,7 +14,6 @@ type Config struct {
 	ProcessingInterval time.Duration
 	BatchSize          int
 	HTTPTimeout        time.Duration
-	MaxRetries         int
 	LogLevel           string
 }
 
@@ -24,10 +23,9 @@ func LoadConfig() *Config {
 		DatabaseURL:        getEnv("DATABASE_URL", ""),
 		ExternalAPIURL:     getEnv("EXTERNAL_API_URL", ""),
 		ExternalAPIToken:   getEnv("EXTERNAL_API_TOKEN", ""),
-		ProcessingInterval: getDurationEnv("PROCESSING_INTERVAL", 5*time.Second),
+		ProcessingInterval: getDurationEnv("PROCESSING_INTERVAL", 1*time.Second),
 		BatchSize:          getIntEnv("BATCH_SIZE", 10),
 		HTTPTimeout:        getDurationEnv("HTTP_TIMEOUT", 10*time.Second),
-		MaxRetries:         getIntEnv("MAX_RETRIES", 3),
 		LogLevel:           getEnv("LOG_LEVEL", "info"),
 	}
 

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,8 +47,9 @@ async def get_unique_tatamis(tournament_id: int, db: AsyncSession = Depends(get_
         .join(Tournament, Bracket.tournament_id == Tournament.id)
         .where(Tournament.external_id == tournament_id, Bracket.tatami.isnot(None))
     )
-    tatamis_raw = result.scalars().all()
-    unique_tatamis = sorted(set(tatamis_raw))
+
+    tatamis_raw: list[Optional[int]] = list(result.scalars().all())
+    unique_tatamis: list[int] = sorted({t for t in tatamis_raw if t is not None})
     return {"tatamis": unique_tatamis}
 
 

@@ -110,8 +110,8 @@ class BracketMatch(Base):
     external_id: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     bracket_id: Mapped[int] = mapped_column(Integer, ForeignKey("brackets.id", ondelete="CASCADE"))
     match_id: Mapped[int] = mapped_column(Integer, ForeignKey("matches.id", ondelete="CASCADE"))
-    round_number: Mapped[Optional[int]] = mapped_column(Integer)
-    position: Mapped[Optional[int]] = mapped_column(Integer)
+    round_number: Mapped[int] = mapped_column(Integer)
+    position: Mapped[int] = mapped_column(Integer)
     next_slot: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     bracket: Mapped["Bracket"] = relationship("Bracket", back_populates="matches")

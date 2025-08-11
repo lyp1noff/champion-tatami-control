@@ -28,7 +28,7 @@ def serialize_match(match: Match) -> MatchSchema:
 
 
 def serialize_match_with_bracket(match: Match) -> MatchWithBracketSchema:
-    bracket_display_name = None
+    bracket_display_name = ""
     if match.bracket_matches:
         bracket_display_name = match.bracket_matches[0].bracket.display_name or ""
 

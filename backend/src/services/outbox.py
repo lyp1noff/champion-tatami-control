@@ -35,7 +35,7 @@ async def create_outbox_entry(
         payload=json.dumps(payload) if payload else None,
         status="pending",
         retry_count=0,
-        max_retries=10,
+        max_retries=30,
     )
 
     db.add(outbox_item)
@@ -52,7 +52,6 @@ async def create_match_start_outbox(match: Match, db: AsyncSession) -> OutboxIte
         db=db,
         endpoint=f"{EXTERNAL_API_URL}/matches/{match.external_id}/start",
         method="POST",
-        payload={"match_id": match.external_id, "started_at": match.started_at.isoformat(), "status": "in_progress"},
         tournament_id=tournament_id,
         match_id=match.id,
     )
@@ -76,14 +75,7 @@ async def create_match_finish_outbox(
         db=db,
         endpoint=f"{EXTERNAL_API_URL}/matches/{match.external_id}/finish",
         method="POST",
-        payload={
-            "match_id": match.external_id,
-            "score_athlete1": score_athlete1,
-            "score_athlete2": score_athlete2,
-            "winner_id": winner_external_id,
-            "ended_at": match.ended_at.isoformat(),
-            "status": "finished",
-        },
+        payload={"score_athlete1": score_athlete1, "score_athlete2": score_athlete2, "winner_id": winner_external_id},
         tournament_id=tournament_id,
         match_id=match.id,
     )
@@ -98,7 +90,6 @@ async def create_match_scores_outbox(match: Match, db: AsyncSession) -> OutboxIt
         endpoint=f"{EXTERNAL_API_URL}/matches/{match.external_id}/scores",
         method="PATCH",
         payload={
-            "match_id": match.external_id,
             "score_athlete1": match.score_athlete1,
             "score_athlete2": match.score_athlete2,
         },

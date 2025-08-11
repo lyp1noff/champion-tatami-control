@@ -91,21 +91,25 @@ export default function ScreenTatami() {
     const labels = ["C1", "C2", "C3", "HC", "H"];
 
     return (
-      <div className="flex gap-2 justify-center mt-3">
+      <div className="flex gap-3 justify-center mt-16">
         {labels.map((label, i) => {
           const isActive = i < count;
-          const isLast = i === labels.length - 1;
+
+          // const isLast = i === labels.length - 1;
+          // const bgClass = isActive
+          //   ? isLast
+          //     ? "bg-red-500 border-red-500 text-black"
+          //     : "bg-[var(--champion-yellow)] border-[var(--champion-yellow)] text-black"
+          //   : "border-white/50 text-white/50";
 
           const bgClass = isActive
-            ? isLast
-              ? "bg-red-500 border-red-500 text-black"
-              : "bg-[var(--champion-yellow)] border-[var(--champion-yellow)] text-black"
+            ? "bg-[var(--champion-yellow)] border-[var(--champion-yellow)] text-black"
             : "border-white/50 text-white/50";
 
           return (
             <div
               key={i}
-              className={`w-22 h-12 rounded-full border-2 flex items-center justify-center font-semibold text-4xl transition-colors duration-200 ${bgClass}`}
+              className={`w-26 h-24 rounded-xl border-2 flex items-center justify-center font-semibold text-6xl transition-colors duration-200 ${bgClass}`}
             >
               {label}
             </div>
@@ -167,12 +171,12 @@ export default function ScreenTatami() {
         </div>
 
         {/* Bracket Name - Top Left */}
-        <div className="absolute top-8 left-8 text-4xl font-bold text-gray-300 z-10">
+        <div className="absolute top-8 left-8 text-5xl font-bold text-gray-300 z-10">
           {currentMatch?.bracket_display_name || ""}
         </div>
 
         {/* Tatami Number - Top Right */}
-        <div className="absolute top-8 right-8 text-4xl font-bold text-gray-300 z-10">TATAMI {tatamiId}</div>
+        <div className="absolute top-8 right-8 text-5xl font-bold text-gray-300 z-10">TATAMI {tatamiId}</div>
 
         {isHydrated && currentMatch && currentMatch?.status !== "finished" && (
           <>
@@ -215,7 +219,7 @@ export default function ScreenTatami() {
             </div>
 
             {/* Seshu - Fighter 1 */}
-            <div className="absolute top-1/3 left-30 transform text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
+            <div className="absolute top-1/4 left-30 transform text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors duration-200 ${senshu === 2 ? "bg-green-500" : ""}`}
               ></div>
@@ -237,7 +241,7 @@ export default function ScreenTatami() {
             </div>
 
             {/* Seshu - Fighter 2 */}
-            <div className="absolute top-1/3 right-30 transform text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
+            <div className="absolute top-1/4 right-30 transform text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors duration-200 ${senshu === 1 ? "bg-green-500" : ""}`}
               ></div>

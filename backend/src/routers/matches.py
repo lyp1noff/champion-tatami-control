@@ -35,7 +35,7 @@ async def get_match(match_id: str, db: AsyncSession = Depends(get_db)) -> MatchW
 
 
 @router.post("/{match_id}/start", response_model=dict)
-async def start_match(match_id: str, db: AsyncSession = Depends(get_db)) -> dict:
+async def start_match(match_id: str, db: AsyncSession = Depends(get_db)) -> dict[str, str]:
     # Find the match
     result = await db.execute(select(Match).where(Match.external_id == match_id))
     match = result.scalar_one_or_none()
@@ -62,7 +62,9 @@ async def start_match(match_id: str, db: AsyncSession = Depends(get_db)) -> dict
 
 
 @router.post("/{match_id}/finish", response_model=dict)
-async def finish_match(match_id: str, finish_data: FinishMatchSchema, db: AsyncSession = Depends(get_db)) -> dict:
+async def finish_match(
+    match_id: str, finish_data: FinishMatchSchema, db: AsyncSession = Depends(get_db)
+) -> dict[str, str]:
     # Find the match
     result = await db.execute(select(Match).where(Match.external_id == match_id))
     match = result.scalar_one_or_none()
@@ -119,18 +121,13 @@ async def finish_match(match_id: str, finish_data: FinishMatchSchema, db: AsyncS
 
     await db.commit()
 
-    return {
-        "message": f"Match {match_id} finished successfully",
-        "score_athlete1": finish_data.score_athlete1,
-        "score_athlete2": finish_data.score_athlete2,
-        "winner_id": finish_data.winner_id,
-    }
+    return {"message": f"Match {match_id} finished successfully"}
 
 
 @router.patch("/{match_id}/scores", response_model=dict)
 async def update_match_scores(
     match_id: str, scores_data: UpdateMatchScoresSchema, db: AsyncSession = Depends(get_db)
-) -> dict:
+) -> dict[str, str]:
     # Find the match
     result = await db.execute(select(Match).where(Match.external_id == match_id))
     match = result.scalar_one_or_none()
@@ -153,8 +150,4 @@ async def update_match_scores(
 
     await db.commit()
 
-    return {
-        "message": f"Scores updated for match {match_id}",
-        "score_athlete1": match.score_athlete1,
-        "score_athlete2": match.score_athlete2,
-    }
+    return {"message": f"Scores updated for match {match_id}"}

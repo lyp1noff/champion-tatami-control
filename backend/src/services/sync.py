@@ -57,7 +57,7 @@ async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str
                 )
             )
             for bm in to_delete.scalars():
-                await db.execute(delete(MatchState).where(MatchState.match_id == bm.match_id))
+                await db.execute(delete(MatchState).where(MatchState.external_match_id == bm.match_id))
                 await db.delete(bm.match)
                 await db.delete(bm)
 

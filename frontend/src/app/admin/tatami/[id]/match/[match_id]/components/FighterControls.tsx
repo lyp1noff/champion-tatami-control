@@ -50,7 +50,7 @@ export function FighterControls({
                 >
                   S
                 </Button>
-                <p className="ml-2 text-lg font-bold flex items-center">Score: {id === 1 ? score1 : score2}</p>
+                <p className="ml-2 text-2xl font-bold flex items-center">Score: {id === 1 ? score1 : score2}</p>
               </div>
               <div className="flex flex-col gap-2">
                 {/* Plus buttons */}

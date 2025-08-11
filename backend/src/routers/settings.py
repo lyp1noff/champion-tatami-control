@@ -29,7 +29,7 @@ async def get_current_tournament(
 async def set_current_tournament(
     body: SetCurrentTournamentRequest,
     db: AsyncSession = Depends(get_db),
-):
+) -> dict[str, str]:
     result = await db.execute(select(GlobalSettings).where(GlobalSettings.key == "current_tournament_id"))
     setting = result.scalar_one_or_none()
 
