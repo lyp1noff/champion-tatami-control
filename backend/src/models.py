@@ -144,8 +144,8 @@ class MatchState(Base, TimestampMixin):
     __tablename__ = "match_states"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    external_match_id: Mapped[str] = mapped_column(
-        String, ForeignKey("matches.external_id"), unique=True, nullable=False
+    match_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("matches.id", ondelete="CASCADE"), unique=True, nullable=False
     )
     status: Mapped[str] = mapped_column(String, default="idle")
     start_timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

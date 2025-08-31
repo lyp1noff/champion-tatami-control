@@ -1,7 +1,9 @@
 export default function Home() {
   return (
-    <div>
-      <h1>Tatami Control</h1>
+    <div className="p-10">
+      <a className="text-xl" href="admin/setup">
+        Tatami Control Setup
+      </a>
     </div>
   );
 }
