@@ -5,6 +5,7 @@ import {
   TatamisResponse,
   Bracket,
   BracketMatch,
+  SyncTournamentResponse,
 } from "./interfaces";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL as string;
@@ -104,13 +105,14 @@ export async function getTatamis(tournamentId: number): Promise<TatamisResponse>
   return { tatamis: data.tatamis || [] };
 }
 
-export async function syncTournament(tournamentId: number): Promise<void> {
+export async function syncTournament(tournamentId: number): Promise<SyncTournamentResponse> {
   const response = await fetch(`${BACKEND_URL}/tournaments/${tournamentId}/sync`, {
     method: "POST",
   });
   if (!response.ok) {
     throw new Error("Failed to sync tournament");
   }
+  return response.json();
 }
 
 // export async function getOutboxStatus(): Promise<any> {

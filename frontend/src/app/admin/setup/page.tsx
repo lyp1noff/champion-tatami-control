@@ -87,10 +87,11 @@ export default function SetupPage() {
 
     try {
       setSyncing(true);
-      await syncTournament(selectedTournament);
+      const result = await syncTournament(selectedTournament);
+      console.log("sync result", result);
       await fetchAvailableTatamis(selectedTournament);
       await fetchOutboxStatus();
-      alert("Tournament synced successfully!");
+      alert(`Tournament sync ${result.status}`);
     } catch (error) {
       console.error("Error syncing tournament:", error);
       alert("Error syncing tournament");

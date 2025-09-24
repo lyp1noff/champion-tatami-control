@@ -113,6 +113,10 @@ export interface TatamisResponse {
   tatamis: number[];
 }
 
+export interface SyncTournamentResponse {
+  status: string;
+}
+
 // export interface OutboxStatusResponse {
 //   [key: string]: any;
 // }

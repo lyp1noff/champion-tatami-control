@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 from src.database import get_db
 from src.models import BracketMatch, Match
 from src.schemas import FinishMatchSchema, MatchWithBracketSchema, UpdateMatchScoresSchema
+from src.services.matches import advance_participants
 from src.services.outbox import create_match_finish_outbox, create_match_scores_outbox, create_match_start_outbox
 from src.services.serialize import serialize_match_with_bracket
 
@@ -101,26 +102,9 @@ async def finish_match(
     bm = bm_result.scalar_one_or_none()
 
     if bm:
-        next_position = (bm.position + 1) // 2
-        next_bm_result = await db.execute(
-            select(BracketMatch).where(
-                BracketMatch.bracket_id == bm.bracket_id,
-                BracketMatch.round_number == bm.round_number + 1,
-                BracketMatch.position == next_position,
-            )
-        )
-        next_bm = next_bm_result.scalar_one_or_none()
-
-        if next_bm:
-            next_match = await db.get(Match, next_bm.match_id)
-            if next_match:
-                if bm.position % 2 == 1:
-                    next_match.athlete1_id = match.winner_id
-                else:
-                    next_match.athlete2_id = match.winner_id
+        await advance_participants(db, bm.bracket_id)
 
     await db.commit()
-
     return {"message": f"Match {match_id} finished successfully"}
 
 

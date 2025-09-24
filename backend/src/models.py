@@ -1,3 +1,4 @@
+import enum
 from datetime import date, datetime
 from typing import List, Optional
 
@@ -7,6 +8,12 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 class Base(DeclarativeBase):
     pass
+
+
+class MatchType(enum.Enum):
+    MAIN = "MAIN"
+    REPECHAGE_A = "REPECHAGE_A"
+    REPECHAGE_B = "REPECHAGE_B"
 
 
 class TimestampMixin:
@@ -83,6 +90,7 @@ class Match(Base):
     winner_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     score_athlete1: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     score_athlete2: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    round_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     status: Mapped[str] = mapped_column(String, default="not_started")
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -116,6 +124,7 @@ class BracketMatch(Base):
 
     bracket: Mapped["Bracket"] = relationship("Bracket", back_populates="matches")
     match: Mapped["Match"] = relationship("Match", back_populates="bracket_matches")
+    match_type: Mapped[str] = mapped_column(String(20), default=MatchType.MAIN.value)
 
 
 class OutboxItem(Base, TimestampMixin):
