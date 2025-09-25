@@ -71,7 +71,7 @@ async def upsert_bracket(db: AsyncSession, tournament_id: int, b: dict) -> Brack
     bracket_obj.type = b["type"]
     bracket_obj.tatami = b.get("tatami")
     bracket_obj.group_id = b.get("group_id") or 1
-    bracket_obj.start_time = b.get("start_time") or "09:00"
+    bracket_obj.start_time = b.get("start_time")
     bracket_obj.status = b["status"]
     bracket_obj.display_name = b.get("display_name") or b["category"]
     await db.flush()
@@ -105,33 +105,48 @@ async def upsert_match_and_bracket_match(
     match_data = bm["match"]
     athlete1 = await upsert_athlete(db, match_data.get("athlete1"))
     athlete2 = await upsert_athlete(db, match_data.get("athlete2"))
+    winner_id = None
+    if match_data.get("winner"):
+        w_id = match_data["winner"]["id"]
+        if athlete1 and athlete1.external_id == w_id:
+            winner_id = athlete1.id
+        elif athlete2 and athlete2.external_id == w_id:
+            winner_id = athlete2.id
+    query: Select[tuple[Match]] = select(Match).where(Match.external_id == match_data["id"])
+    result: Result[tuple[Match]] = await db.execute(query)
+    match = result.scalar_one_or_none()
 
-    match = Match(
-        external_id=match_data["id"],
-        athlete1_id=athlete1.id if athlete1 else None,
-        athlete2_id=athlete2.id if athlete2 else None,
-        winner_id=match_data["winner"]["id"] if match_data.get("winner") else None,
-        score_athlete1=match_data.get("score_athlete1"),
-        score_athlete2=match_data.get("score_athlete2"),
-        round_type=match_data.get("round_type"),
-        status=match_data["status"],
-        started_at=parse_datetime_utc(match_data.get("started_at")),
-        ended_at=parse_datetime_utc(match_data.get("ended_at")),
-    )
-    db.add(match)
+    if not match:
+        match = Match(external_id=match_data["id"])
+        db.add(match)
+
+    match.athlete1_id = athlete1.id if athlete1 else None
+    match.athlete2_id = athlete2.id if athlete2 else None
+    match.winner_id = winner_id
+    match.score_athlete1 = match_data.get("score_athlete1")
+    match.score_athlete2 = match_data.get("score_athlete2")
+    match.round_type = match_data.get("round_type")
+    match.status = match_data["status"]
+    match.started_at = parse_datetime_utc(match_data.get("started_at"))
+    match.ended_at = parse_datetime_utc(match_data.get("ended_at"))
     await db.flush()
 
-    db.add(
-        BracketMatch(
-            external_id=bm["id"],
-            bracket_id=bracket_obj.id,
-            match_id=match.id,
-            round_number=bm["round_number"],
-            position=bm["position"],
-            next_slot=bm.get("next_slot"),
-            match_type=MATCH_TYPE_MAP[group_name].value,
-        )
+    bm_query: Select[tuple[BracketMatch]] = select(BracketMatch).where(
+        BracketMatch.external_id == bm["id"]
     )
+    bm_result: Result[tuple[BracketMatch]] = await db.execute(bm_query)
+    bm_obj = bm_result.scalar_one_or_none()
+
+    if not bm_obj:
+        bm_obj = BracketMatch(external_id=bm["id"], bracket_id=bracket_obj.id)
+        db.add(bm_obj)
+
+    bm_obj.match_id = match.id
+    bm_obj.round_number = bm["round_number"]
+    bm_obj.position = bm["position"]
+    bm_obj.next_slot = bm.get("next_slot")
+    bm_obj.match_type = MATCH_TYPE_MAP[group_name].value
+    await db.flush()
 
 
 async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str]:

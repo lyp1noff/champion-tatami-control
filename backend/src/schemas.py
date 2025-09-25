@@ -85,6 +85,7 @@ class BracketMatchSchema(CustomBaseModel):
     position: int
     match: MatchSchema
     next_slot: Optional[int] = None
+    match_type: str
 
 
 class UpdateMatchScoresSchema(BaseModel):

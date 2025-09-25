@@ -66,14 +66,13 @@ async def advance_participants(db: AsyncSession, bracket_id: int) -> None:
                 if not match or match.status != "finished" or not match.winner_id:
                     continue
 
-                next_position = (bm.position + 1) // 2
-                next_bm = next((m for m in next_round if m.position == next_position), None)
-                if next_bm:
+                if next_round:
+                    next_bm = next_round[0]
                     next_match = await db.get(Match, next_bm.match_id)
                     if next_match:
-                        if bm.position % 2 == 1:
+                        if not next_match.athlete1_id:
                             next_match.athlete1_id = match.winner_id
-                        else:
+                        elif not next_match.athlete2_id:
                             next_match.athlete2_id = match.winner_id
 
     # --- 6. Триггер репазажа после полуфиналов ---

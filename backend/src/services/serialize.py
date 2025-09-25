@@ -55,4 +55,5 @@ def serialize_bracket_match(bracketMatch: BracketMatch) -> BracketMatchSchema:
         position=bracketMatch.position,
         match=serialize_match(bracketMatch.match),
         next_slot=bracketMatch.next_slot,
+        match_type=bracketMatch.match_type,
     )
