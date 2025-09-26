@@ -276,7 +276,11 @@ export default function ScreenTatami() {
             <div className="absolute top-7/8 left-1/6 transform -translate-x-1/2 -translate-y-1/2 text-center z-10">
               <div className="text-5xl max-w-xl break-words leading-tight drop-shadow-[0_0_10px_rgba(0,0,0,0.7)]">
                 {leftFighter?.athlete
-                  ? `${leftFighter.athlete.last_name} ${leftFighter.athlete.first_name} (${leftFighter.athlete.coaches_last_name})`
+                  ? `${leftFighter.athlete.last_name} ${leftFighter.athlete.first_name}${
+                      leftFighter.athlete.coaches_last_name && leftFighter.athlete.coaches_last_name.length > 0
+                        ? ` (${leftFighter.athlete.coaches_last_name})`
+                        : ""
+                    }`
                   : "Left Fighter"}
               </div>
             </div>
@@ -300,8 +304,12 @@ export default function ScreenTatami() {
             <div className="absolute top-7/8 right-1/6 transform translate-x-1/2 -translate-y-1/2 text-center z-10">
               <div className="text-5xl max-w-xl break-words leading-tight drop-shadow-[0_0_10px_rgba(0,0,0,0.7)]">
                 {rightFighter?.athlete
-                  ? `${rightFighter.athlete.last_name} ${rightFighter.athlete.first_name} (${rightFighter.athlete.coaches_last_name})`
-                  : "Right Fighter"}
+                  ? `${rightFighter.athlete.last_name} ${rightFighter.athlete.first_name}${
+                      rightFighter.athlete.coaches_last_name && rightFighter.athlete.coaches_last_name.length > 0
+                        ? ` (${rightFighter.athlete.coaches_last_name})`
+                        : ""
+                    }`
+                  : "Left Fighter"}
               </div>
             </div>
           </>
