@@ -49,6 +49,7 @@ class BracketSchema(CustomBaseModel):
     tatami: Optional[int] = 1
     group_id: int = 1
     start_time: str
+    day: int = 1
     status: Optional[str]
     display_name: Optional[str]
 

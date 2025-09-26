@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:15
+    image: postgres:17.6
     container_name: champion-tatami-postgres-db
     restart: always
     environment:
@@ -8,9 +8,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: "${POSTGRES_DB:-champ_local}"
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build:
@@ -23,12 +28,17 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-champ}
       - EXTERNAL_API_URL=${EXTERNAL_API_URL}
       - EXTERNAL_API_TOKEN=${EXTERNAL_API_TOKEN}
       - DEV_MODE=${DEV_MODE}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   frontend:
     build:
@@ -51,7 +61,11 @@ services:
       dockerfile: ./Dockerfile
     image: champion-tatami-outbox:latest
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-champ}
       - EXTERNAL_API_URL=${EXTERNAL_API_URL}
       - EXTERNAL_API_TOKEN=${EXTERNAL_API_TOKEN}
     restart: unless-stopped

@@ -194,7 +194,7 @@ export default function TatamiSetupPage() {
                   <SelectContent>
                     {brackets.map((bracket) => (
                       <SelectItem key={String(bracket.external_id)} value={String(bracket.external_id)}>
-                        {bracket.start_time?.slice(0, 5)} - {bracket.display_name}
+                        Day {bracket.day} - {bracket.start_time?.slice(0, 5)} - {bracket.display_name}
                       </SelectItem>
                     ))}
                   </SelectContent>

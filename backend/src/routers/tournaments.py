@@ -59,7 +59,7 @@ async def get_brackets(tournament_id: int, db: AsyncSession = Depends(get_db)) -
         select(Bracket)
         .join(Tournament, Bracket.tournament_id == Tournament.id)
         .where(Tournament.external_id == tournament_id)
-        .order_by(Bracket.tatami, Bracket.start_time)
+        .order_by(Bracket.day, Bracket.tatami, Bracket.start_time)
     )
     brackets = result.scalars().all()
     return [BracketSchema.model_validate(b) for b in brackets]

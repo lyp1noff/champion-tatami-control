@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -19,8 +20,19 @@ type Config struct {
 
 // LoadConfig loads configuration from environment variables
 func LoadConfig() *Config {
+	dbUser := getEnv("POSTGRES_USER", "")
+	dbPassword := getEnv("POSTGRES_PASSWORD", "")
+	dbHost := getEnv("POSTGRES_HOST", "localhost")
+	dbPort := getEnv("POSTGRES_PORT", "5432")
+	dbName := getEnv("POSTGRES_DB", "")
+
+	databaseURL := fmt.Sprintf(
+		"postgresql://%s:%s@%s:%s/%s",
+		dbUser, dbPassword, dbHost, dbPort, dbName,
+	)
+
 	config := &Config{
-		DatabaseURL:        getEnv("DATABASE_URL", ""),
+		DatabaseURL:        databaseURL,
 		ExternalAPIURL:     getEnv("EXTERNAL_API_URL", ""),
 		ExternalAPIToken:   getEnv("EXTERNAL_API_TOKEN", ""),
 		ProcessingInterval: getDurationEnv("PROCESSING_INTERVAL", 1*time.Second),

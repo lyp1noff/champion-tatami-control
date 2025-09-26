@@ -47,6 +47,7 @@ class Bracket(Base, TimestampMixin):
     tatami: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     group_id: Mapped[int] = mapped_column(Integer, default=1)
     start_time: Mapped[str] = mapped_column(String, default="09:00")
+    day: Mapped[int] = mapped_column(default=1)
     status: Mapped[Optional[str]] = mapped_column(String)
     display_name: Mapped[Optional[str]] = mapped_column(String)
 

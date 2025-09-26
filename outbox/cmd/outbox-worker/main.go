@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"log"
-	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
@@ -33,9 +32,8 @@ func main() {
 	loggerInstance.Info("Starting outbox service...")
 
 	// Setup database connection
-	dbURL := strings.Replace(cfg.DatabaseURL, "+asyncpg", "", 1)
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
+	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		loggerInstance.Error("Failed to connect to database: %v", err)
 		log.Fatal("Failed to connect to database:", err)

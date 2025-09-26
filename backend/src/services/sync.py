@@ -9,6 +9,7 @@ from sqlalchemy.sql import Select
 from src.config import EXTERNAL_API_TOKEN, EXTERNAL_API_URL
 from src.models import Athlete, Bracket, BracketMatch, Match, Tournament
 from src.utils import parse_datetime_utc
+from src.logger import logger
 
 
 async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str]:
@@ -27,14 +28,14 @@ async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str
             brackets_with_matches = full_data_resp.json()
 
         # --- UPSERT Tournament
-        print(f"Checking for existing tournament with external_id {tournament['id']}")
+        logger.info(f"Checking for existing tournament with external_id {tournament['id']}")
         tournament_query: Select[tuple[Tournament]] = select(Tournament).where(
             Tournament.external_id == tournament["id"]
         )
         result: Result[tuple[Tournament]] = await db.execute(tournament_query)
         obj: Optional[Tournament] = result.scalar_one_or_none()
         if obj:
-            print(f"Updating existing tournament {obj.id}")
+            logger.info(f"Updating existing tournament {obj.id}")
             obj.name = tournament["name"]
             obj.location = tournament["location"]
             start_dt = parse_datetime_utc(tournament["start_date"])
@@ -43,7 +44,7 @@ async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str
             obj.end_date = end_dt.date() if end_dt else None
             obj.status = tournament["status"]
         else:
-            print(f"Creating new tournament with external_id {tournament['id']}")
+            logger.info(f"Creating new tournament with external_id {tournament['id']}")
             start_dt = parse_datetime_utc(tournament["start_date"])
             end_dt = parse_datetime_utc(tournament["end_date"])
             obj = Tournament(
@@ -56,16 +57,16 @@ async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str
             )
             db.add(obj)
         await db.flush()  # Ensure tournament ID is available
-        print(f"Tournament ID: {obj.id}")
+        logger.info(f"Tournament ID: {obj.id}")
 
         # --- CLEAN non-started brackets and their associated data
-        print(f"Cleaning non-started brackets for tournament {obj.id}")
+        logger.info(f"Cleaning non-started brackets for tournament {obj.id}")
         non_started_brackets_query: Select[tuple[Bracket]] = select(Bracket).where(
             Bracket.tournament_id == obj.id, Bracket.status.notin_(["started", "finished"])
         )
         non_started_brackets: Result[tuple[Bracket]] = await db.execute(non_started_brackets_query)
         for bracket in non_started_brackets.scalars():
-            print(f"Deleting non-started bracket {bracket.id} (external_id: {bracket.external_id})")
+            logger.info(f"Deleting non-started bracket {bracket.id} (external_id: {bracket.external_id})")
             await db.delete(bracket)  # Cascades to BracketMatch, Match, MatchState
         await db.flush()
 
@@ -73,34 +74,35 @@ async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str
         for b in brackets_with_matches:
             # Skip started or finished brackets
             if b["status"] in ["started", "finished"]:
-                print(f"Skipping started/finished bracket with external_id {b['bracket_id']} (status: {b['status']})")
+                logger.info(f"Skipping started/finished bracket with external_id {b['bracket_id']} (status: {b['status']})")
                 continue
 
-            print(f"Processing bracket with external_id {b['bracket_id']}")
+            logger.info(f"Processing bracket with external_id {b['bracket_id']}")
             bracket_query: Select[tuple[Bracket]] = select(Bracket).where(Bracket.external_id == b["bracket_id"])
             bracket_result: Result[tuple[Bracket]] = await db.execute(bracket_query)
             bracket_obj: Optional[Bracket] = bracket_result.scalar_one_or_none()
             if not bracket_obj:
-                print(f"Creating new bracket with external_id {b['bracket_id']}")
+                logger.info(f"Creating new bracket with external_id {b['bracket_id']}")
                 bracket_obj = Bracket(
                     external_id=b["bracket_id"],
                     tournament_id=obj.id,
                 )
                 db.add(bracket_obj)
             else:
-                print(f"Updating existing bracket {bracket_obj.id} (external_id: {b['bracket_id']})")
+                logger.info(f"Updating existing bracket {bracket_obj.id} (external_id: {b['bracket_id']})")
             bracket_obj.category = b["category"]
             bracket_obj.type = b["type"]
             bracket_obj.tatami = b.get("tatami")
             bracket_obj.group_id = b.get("group_id") or 1
             bracket_obj.start_time = b.get("start_time") or "09:00"
+            bracket_obj.day = b.get("day") or 1
             bracket_obj.status = b["status"]
             bracket_obj.display_name = b.get("display_name") or b["category"]
             await db.flush()
 
             for bm in b["matches"]:
                 match_data = bm["match"]
-                print(f"Processing match with external_id {match_data['id']}")
+                logger.info(f"Processing match with external_id {match_data['id']}")
                 athlete1: Optional[Athlete] = None
                 athlete2: Optional[Athlete] = None
 
@@ -111,7 +113,7 @@ async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str
                     athlete1_result: Result[tuple[Athlete]] = await db.execute(athlete1_query)
                     athlete1 = athlete1_result.scalar_one_or_none()
                     if not athlete1:
-                        print(f"Creating new athlete with external_id {match_data['athlete1']['id']}")
+                        logger.info(f"Creating new athlete with external_id {match_data['athlete1']['id']}")
                         athlete1 = Athlete(
                             external_id=match_data["athlete1"]["id"],
                             first_name=match_data["athlete1"]["first_name"],
@@ -128,7 +130,7 @@ async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str
                     athlete2_result: Result[tuple[Athlete]] = await db.execute(athlete2_query)
                     athlete2 = athlete2_result.scalar_one_or_none()
                     if not athlete2:
-                        print(f"Creating new athlete with external_id {match_data['athlete2']['id']}")
+                        logger.info(f"Creating new athlete with external_id {match_data['athlete2']['id']}")
                         athlete2 = Athlete(
                             external_id=match_data["athlete2"]["id"],
                             first_name=match_data["athlete2"]["first_name"],
@@ -138,11 +140,19 @@ async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str
                         db.add(athlete2)
                         await db.flush()
 
+                winner_id = None
+                if match_data.get("winner"):
+                    w_id = match_data["winner"]["id"]
+                    if athlete1 and athlete1.external_id == w_id:
+                        winner_id = athlete1.id
+                    elif athlete2 and athlete2.external_id == w_id:
+                        winner_id = athlete2.id
+
                 match = Match(
                     external_id=match_data["id"],
                     athlete1_id=athlete1.id if athlete1 else None,
                     athlete2_id=athlete2.id if athlete2 else None,
-                    winner_id=match_data["winner"]["id"] if match_data.get("winner") and match_data["winner"] else None,
+                    winner_id=winner_id,
                     score_athlete1=match_data.get("score_athlete1"),
                     score_athlete2=match_data.get("score_athlete2"),
                     status=match_data["status"],
@@ -151,7 +161,7 @@ async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str
                 )
                 db.add(match)
                 await db.flush()
-                print(f"Created/Updated match {match.id} (external_id: {match_data['id']})")
+                logger.info(f"Created/Updated match {match.id} (external_id: {match_data['id']})")
 
                 db.add(
                     BracketMatch(
@@ -163,14 +173,14 @@ async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str
                         next_slot=bm.get("next_slot"),
                     )
                 )
-                print(f"Created BracketMatch with external_id {bm['id']} for match {match.id}")
+                logger.info(f"Created BracketMatch with external_id {bm['id']} for match {match.id}")
 
-        print("Committing changes to database")
+        logger.info("Committing changes to database")
         await db.commit()
-        print("Commit successful")
+        logger.info("Commit successful")
         return {"status": "success", "message": f"Tournament {tournament_id} synced successfully"}
 
     except Exception as e:
         await db.rollback()
-        print(f"Sync failed: {e}")
+        logger.info(f"Sync failed: {e}")
         return {"status": "error", "message": f"Sync failed: {str(e)}"}
