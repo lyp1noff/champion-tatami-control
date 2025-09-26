@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTatamiStore } from "@/store/tatami";
 
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,9 @@ import { FighterControls } from "./components/FighterControls";
 import { TimeAdjustment } from "./components/TimeAdjustment";
 import { FinishMatchDialog } from "./components/FinishMatchDialog";
 import { StartMatchDialog } from "./components/StartMatchDialog";
-import { getMatch, startMatch as startMatchApi, finishMatch as finishMatchApi, updateScores } from "@/lib/api";
+import { finishMatch as finishMatchApi, getMatch, startMatch as startMatchApi, updateScores } from "@/lib/api";
 import { TimeSetting } from "./components/TimeSetting";
+import { createEmptyMatch } from "@/lib/emptyMatch";
 
 export default function ManageTatami() {
   const { id: tatamiId, match_id } = useParams();
@@ -26,6 +27,7 @@ export default function ManageTatami() {
     shido1,
     shido2,
     senshu,
+    swap_status,
     currentMatch,
     setState,
     reset,
@@ -58,10 +60,14 @@ export default function ManageTatami() {
   );
 
   useEffect(() => {
-    if (isHydrated) {
+    if (!isHydrated) return;
+
+    if (match_id === "empty") {
+      setMatch(createEmptyMatch());
+    } else {
       loadMatchData(match_id as string);
     }
-  }, [match_id, isHydrated, loadMatchData]);
+  }, [match_id, isHydrated, loadMatchData, setMatch]);
 
   const startMatch = async () => {
     if (!currentMatch) {
@@ -70,7 +76,9 @@ export default function ManageTatami() {
     }
 
     try {
-      await startMatchApi(match_id as string);
+      if (match_id !== "empty") {
+        await startMatchApi(match_id as string);
+      }
       setState({ currentMatch: { ...currentMatch, status: "started" } });
     } catch (error) {
       console.error("Error starting match:", error);
@@ -85,7 +93,9 @@ export default function ManageTatami() {
     }
 
     try {
-      await finishMatchApi(match_id as string, score1, score2, winnerId);
+      if (match_id !== "empty") {
+        await finishMatchApi(match_id as string, score1, score2, winnerId);
+      }
       reset();
     } catch (error) {
       console.error("Error finishing match:", error);
@@ -131,7 +141,9 @@ export default function ManageTatami() {
     const newScore = Math.max(0, current + delta);
 
     try {
-      await updateScores(match_id as string, fighter === 1 ? newScore : score1, fighter === 2 ? newScore : score2);
+      if (match_id !== "empty") {
+        await updateScores(match_id as string, fighter === 1 ? newScore : score1, fighter === 2 ? newScore : score2);
+      }
       // Update only the score in the store
       setState({ [`score${fighter}`]: newScore });
     } catch (error) {
@@ -243,6 +255,10 @@ export default function ManageTatami() {
     setTimeSettingInput((prev) => ({ ...prev, [field]: value }));
   };
 
+  const swap = useCallback(() => {
+    setState({ swap_status: !swap_status });
+  }, [setState, swap_status]);
+
   if (!isHydrated) {
     return (
       <div className="p-4 space-y-4 max-w-4xl mx-auto">
@@ -257,9 +273,14 @@ export default function ManageTatami() {
     <div className="p-4 space-y-4 max-w-4xl mx-auto">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Tatami Control</h1>
-        <Button variant="outline" onClick={() => (window.location.href = `/admin/tatami/${tatamiId}`)}>
-          Setup New Match
-        </Button>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" onClick={swap}>
+            Swap competitors
+          </Button>
+          <Button variant="outline" onClick={() => (window.location.href = `/admin/tatami/${tatamiId}`)}>
+            Setup New Match
+          </Button>
+        </div>
       </div>
 
       {/* Match Status */}
@@ -297,6 +318,7 @@ export default function ManageTatami() {
             shido1={shido1}
             shido2={shido2}
             senshu={senshu}
+            swap_status={swap_status}
             onAdjustScore={adjustScore}
             onSetShido={setShido}
             onSetSenshu={setSenshu}
@@ -319,7 +341,13 @@ export default function ManageTatami() {
             onSaveTimeSetting={saveTimeSetting}
           />
 
-          <FinishMatchDialog currentMatch={currentMatch} score1={score1} score2={score2} onFinishMatch={finishMatch} />
+          <FinishMatchDialog
+            currentMatch={currentMatch}
+            score1={score1}
+            score2={score2}
+            swap_status={swap_status}
+            onFinishMatch={finishMatch}
+          />
         </>
       )}
 

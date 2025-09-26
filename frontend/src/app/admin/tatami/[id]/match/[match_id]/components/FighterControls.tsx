@@ -8,6 +8,7 @@ interface FighterControlsProps {
   shido1: number;
   shido2: number;
   senshu: number;
+  swap_status: boolean;
   onAdjustScore: (fighter: 1 | 2, delta: number) => void;
   onSetShido: (fighter: 1 | 2, value: number) => void;
   onSetSenshu: (fighter_or_zero: 0 | 1 | 2) => void;
@@ -20,16 +21,18 @@ export function FighterControls({
   shido1,
   shido2,
   senshu,
+  swap_status,
   onAdjustScore,
   onSetShido,
   onSetSenshu,
 }: FighterControlsProps) {
+  const fighters = swap_status ? [2, 1] : [1, 2];
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {[1, 2].map((id) => {
+      {fighters.map((id) => {
         const athlete = id === 1 ? currentMatch?.athlete1 : currentMatch?.athlete2;
         const athleteName = athlete
-          ? `${athlete.first_name} ${athlete.last_name} (${athlete.coaches_last_name})`
+          ? `${athlete.last_name} ${athlete.first_name} (${athlete.coaches_last_name})`
           : `Fighter ${id}`;
 
         return (

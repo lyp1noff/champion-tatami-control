@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
 from src.config import EXTERNAL_API_TOKEN, EXTERNAL_API_URL
+from src.logger import logger
 from src.models import Athlete, Bracket, BracketMatch, Match, Tournament
 from src.utils import parse_datetime_utc
-from src.logger import logger
 
 
 async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str]:
@@ -74,7 +74,9 @@ async def sync_tournament(tournament_id: int, db: AsyncSession) -> dict[str, str
         for b in brackets_with_matches:
             # Skip started or finished brackets
             if b["status"] in ["started", "finished"]:
-                logger.info(f"Skipping started/finished bracket with external_id {b['bracket_id']} (status: {b['status']})")
+                logger.info(
+                    f"Skipping started/finished bracket with external_id {b['bracket_id']} (status: {b['status']})"
+                )
                 continue
 
             logger.info(f"Processing bracket with external_id {b['bracket_id']}")

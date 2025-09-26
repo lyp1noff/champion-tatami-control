@@ -30,11 +30,11 @@ export function StartMatchDialog({ currentMatch, status, onStartMatch }: StartMa
   };
 
   const athlete1Name = currentMatch?.athlete1
-    ? `${currentMatch.athlete1.first_name} ${currentMatch.athlete1.last_name} (${currentMatch.athlete1.coaches_last_name})`
+    ? `${currentMatch.athlete1.last_name} ${currentMatch.athlete1.first_name} (${currentMatch.athlete1.coaches_last_name})`
     : "Fighter 1";
 
   const athlete2Name = currentMatch?.athlete2
-    ? `${currentMatch.athlete2.first_name} ${currentMatch.athlete2.last_name} (${currentMatch.athlete2.coaches_last_name})`
+    ? `${currentMatch.athlete2.last_name} ${currentMatch.athlete2.first_name} (${currentMatch.athlete2.coaches_last_name})`
     : "Fighter 2";
 
   const isDisabled = status === "running" || currentMatch?.status === "started";

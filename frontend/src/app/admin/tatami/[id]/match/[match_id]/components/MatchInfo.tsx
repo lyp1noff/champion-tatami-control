@@ -15,13 +15,13 @@ export function MatchInfo({ currentMatch, matchId, tatamiId }: MatchInfoProps) {
           <div>
             <strong>Athlete 1:</strong>{" "}
             {currentMatch.athlete1
-              ? `${currentMatch.athlete1.first_name} ${currentMatch.athlete1.last_name} (${currentMatch.athlete1.coaches_last_name})`
+              ? `${currentMatch.athlete1.last_name} ${currentMatch.athlete1.first_name} (${currentMatch.athlete1.coaches_last_name})`
               : "TBD"}
           </div>
           <div>
             <strong>Athlete 2:</strong>{" "}
             {currentMatch.athlete2
-              ? `${currentMatch.athlete2.first_name} ${currentMatch.athlete2.last_name} (${currentMatch.athlete2.coaches_last_name})`
+              ? `${currentMatch.athlete2.last_name} ${currentMatch.athlete2.first_name} (${currentMatch.athlete2.coaches_last_name})`
               : "TBD"}
           </div>
           <div>

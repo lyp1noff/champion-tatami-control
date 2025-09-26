@@ -12,6 +12,7 @@ export type TatamiState = {
   shido1: number;
   shido2: number;
   senshu: number;
+  swap_status: boolean;
   currentMatch: ExternalMatch | null;
   setState: (partial: Partial<TatamiState>) => void;
   reset: () => void;
@@ -31,12 +32,13 @@ export const useTatamiStore = create<TatamiState>()(
       shido1: 0,
       shido2: 0,
       senshu: 0,
+      swap_status: false,
       currentMatch: null,
 
       setState: (partial) => set(partial),
 
       reset: () =>
-        set({
+        set((state) => ({
           status: "idle",
           startTimestamp: null,
           pausedElapsed: 0,
@@ -46,8 +48,9 @@ export const useTatamiStore = create<TatamiState>()(
           shido1: 0,
           shido2: 0,
           senshu: 0,
+          swap_status: state.swap_status,
           currentMatch: null,
-        }),
+        })),
 
       setMatch: (match: ExternalMatch) =>
         set((state) => {
@@ -67,6 +70,7 @@ export const useTatamiStore = create<TatamiState>()(
                 shido1: 0,
                 shido2: 0,
                 senshu: 0,
+                swap_status: state.swap_status,
               };
         }),
 
@@ -87,6 +91,7 @@ export const useTatamiStore = create<TatamiState>()(
         shido1: state.shido1,
         shido2: state.shido2,
         senshu: state.senshu,
+        swap_status: state.swap_status,
         currentMatch: state.currentMatch,
       }),
     },

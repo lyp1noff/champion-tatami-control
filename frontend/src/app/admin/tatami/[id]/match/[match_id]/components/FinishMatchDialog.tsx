@@ -16,10 +16,17 @@ interface FinishMatchDialogProps {
   currentMatch: ExternalMatch | null;
   score1: number;
   score2: number;
+  swap_status: boolean;
   onFinishMatch: (winnerId: number) => void;
 }
 
-export function FinishMatchDialog({ currentMatch, score1, score2, onFinishMatch }: FinishMatchDialogProps) {
+export function FinishMatchDialog({
+  currentMatch,
+  score1,
+  score2,
+  swap_status,
+  onFinishMatch,
+}: FinishMatchDialogProps) {
   const [open, setOpen] = useState(false);
   const [selectedWinner, setSelectedWinner] = useState<number>(0);
 
@@ -44,13 +51,21 @@ export function FinishMatchDialog({ currentMatch, score1, score2, onFinishMatch 
     setOpen(false);
   };
 
-  const athlete1Name = currentMatch?.athlete1
-    ? `${currentMatch.athlete1.first_name} ${currentMatch.athlete1.last_name}`
-    : "Fighter 1";
+  const fighters = swap_status ? [2, 1] : [1, 2];
 
-  const athlete2Name = currentMatch?.athlete2
-    ? `${currentMatch.athlete2.first_name} ${currentMatch.athlete2.last_name}`
-    : "Fighter 2";
+  const getFighter = (id: 1 | 2) => {
+    const athlete = id === 1 ? currentMatch?.athlete1 : currentMatch?.athlete2;
+    const score = id === 1 ? score1 : score2;
+    return {
+      id: athlete?.id || 0,
+      name: athlete ? `${athlete.last_name} ${athlete.first_name}` : `Fighter ${id}`,
+      score,
+      colorClass: id === 1 ? "text-red-600" : "text-blue-600",
+    };
+  };
+
+  const f1 = getFighter(fighters[0] as 1 | 2);
+  const f2 = getFighter(fighters[1] as 1 | 2);
 
   return (
     <div className="border rounded-lg p-4 border-red-500 bg-red-50">
@@ -74,12 +89,12 @@ export function FinishMatchDialog({ currentMatch, score1, score2, onFinishMatch 
               {/* Score Display */}
               <div className="grid grid-cols-2 gap-4 text-center">
                 <div className="p-3 border rounded-lg">
-                  <div className="text-2xl font-bold text-red-600">{score1}</div>
-                  <div className="text-sm text-gray-600">{athlete1Name}</div>
+                  <div className={`text-2xl font-bold ${f1.colorClass}`}>{f1.score}</div>
+                  <div className="text-sm text-gray-600">{f1.name}</div>
                 </div>
                 <div className="p-3 border rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{score2}</div>
-                  <div className="text-sm text-gray-600">{athlete2Name}</div>
+                  <div className={`text-2xl font-bold ${f2.colorClass}`}>{f2.score}</div>
+                  <div className="text-sm text-gray-600">{f2.name}</div>
                 </div>
               </div>
 
@@ -91,11 +106,11 @@ export function FinishMatchDialog({ currentMatch, score1, score2, onFinishMatch 
                     <SelectValue placeholder="Select winner" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={currentMatch?.athlete1?.id?.toString() || "0"}>
-                      {athlete1Name} ({score1} points)
+                    <SelectItem value={f1.id.toString()}>
+                      {f1.name} ({f1.score} points)
                     </SelectItem>
-                    <SelectItem value={currentMatch?.athlete2?.id?.toString() || "0"}>
-                      {athlete2Name} ({score2} points)
+                    <SelectItem value={f2.id.toString()}>
+                      {f2.name} ({f2.score} points)
                     </SelectItem>
                   </SelectContent>
                 </Select>

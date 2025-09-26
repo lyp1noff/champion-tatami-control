@@ -1,13 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Athlete, Bracket, BracketMatch } from "@/lib/interfaces";
-import { getCurrentTournament, getTournament, getBrackets, getMatches } from "@/lib/api";
-import { Tournament } from "@/lib/interfaces";
+import { Athlete, Bracket, BracketMatch, Tournament } from "@/lib/interfaces";
+import { getBrackets, getCurrentTournament, getMatches, getTournament } from "@/lib/api";
 
 export default function TatamiSetupPage() {
   const router = useRouter();
@@ -150,7 +149,7 @@ export default function TatamiSetupPage() {
 
   const getAthleteName = (athlete: Athlete) => {
     if (!athlete) return "TBD";
-    return `${athlete.first_name} ${athlete.last_name} (${athlete.coaches_last_name})`;
+    return ` ${athlete.last_name} ${athlete.first_name} (${athlete.coaches_last_name})`;
   };
 
   const handleStartMatch = () => {
@@ -330,6 +329,14 @@ export default function TatamiSetupPage() {
         {/* Action Buttons */}
         <Button onClick={handleStartMatch} disabled={!selectedMatch || loading} size="lg" className="px-8 mt-8 w-full">
           {loading ? "Loading..." : "Start Match Control"}
+        </Button>
+
+        <Button
+          onClick={() => router.push(`/admin/tatami/${tatamiId}/match/empty`)}
+          size="lg"
+          className="px-8 mt-8 w-full"
+        >
+          Start Empty Match
         </Button>
       </div>
     </div>

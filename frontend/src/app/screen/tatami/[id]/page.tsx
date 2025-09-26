@@ -9,8 +9,19 @@ export default function ScreenTatami() {
   const { id: tatamiId } = useParams();
   const [isHydrated, setIsHydrated] = useState(false);
 
-  const { status, startTimestamp, pausedElapsed, durationMs, score1, score2, shido1, shido2, senshu, currentMatch } =
-    useTatamiStore();
+  const {
+    status,
+    startTimestamp,
+    pausedElapsed,
+    durationMs,
+    score1,
+    score2,
+    shido1,
+    shido2,
+    senshu,
+    swap_status,
+    currentMatch,
+  } = useTatamiStore();
   const [localElapsed, setLocalElapsed] = useState(0);
   const [scale, setScale] = useState(1);
 
@@ -127,6 +138,38 @@ export default function ScreenTatami() {
 
   const chars = formatPartsArray(remaining);
 
+  const leftFighter = swap_status
+    ? {
+        score: score1,
+        shido: shido1,
+        senshuActive: senshu === 1,
+        athlete: currentMatch?.athlete1,
+        colorClass: "text-red-500",
+      }
+    : {
+        score: score2,
+        shido: shido2,
+        senshuActive: senshu === 2,
+        athlete: currentMatch?.athlete2,
+        colorClass: "text-blue-500",
+      };
+
+  const rightFighter = swap_status
+    ? {
+        score: score2,
+        shido: shido2,
+        senshuActive: senshu === 2,
+        athlete: currentMatch?.athlete2,
+        colorClass: "text-blue-500",
+      }
+    : {
+        score: score1,
+        shido: shido1,
+        senshuActive: senshu === 1,
+        athlete: currentMatch?.athlete1,
+        colorClass: "text-red-500",
+      };
+
   return (
     <div className="w-screen h-screen bg-black text-white flex flex-col relative overflow-hidden">
       <div
@@ -139,7 +182,11 @@ export default function ScreenTatami() {
       >
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-15">
-          <div className="w-full h-full bg-gradient-to-r from-blue-500 to-red-500"></div>
+          <div
+            className={`w-full h-full bg-gradient-to-r ${
+              swap_status ? "from-red-500 to-blue-500" : "from-blue-500 to-red-500"
+            }`}
+          ></div>
         </div>
 
         {/* Center Logo */}
@@ -212,47 +259,49 @@ export default function ScreenTatami() {
             </div> */}
             </div>
 
-            {/* Score Display - Fighter 1 (25% from left edge) */}
+            {/* Left Fighter Score */}
             <div className="absolute top-1/2 left-1/6 transform -translate-x-1/2 -translate-y-1/2 text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
-              <div className="text-[20rem] font-bold text-blue-500 leading-none">{score2}</div>
-              {renderDots(shido2)}
+              <div className={`text-[20rem] font-bold leading-none ${leftFighter.colorClass}`}>{leftFighter.score}</div>
+              {renderDots(leftFighter.shido)}
             </div>
 
-            {/* Seshu - Fighter 1 */}
+            {/* Seshu - Left Fighter */}
             <div className="absolute top-1/4 left-30 transform text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors duration-200 ${senshu === 2 ? "bg-green-500" : ""}`}
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors duration-200 ${leftFighter.senshuActive ? "bg-green-500" : ""}`}
               ></div>
             </div>
 
-            {/* Name Display - Fighter 1 (25% from left edge, lower) */}
+            {/* Name Display - Left Fighter (25% from left edge, lower) */}
             <div className="absolute top-7/8 left-1/6 transform -translate-x-1/2 -translate-y-1/2 text-center z-10">
               <div className="text-5xl max-w-xl break-words leading-tight drop-shadow-[0_0_10px_rgba(0,0,0,0.7)]">
-                {currentMatch?.athlete2
-                  ? `${currentMatch.athlete2.first_name} ${currentMatch.athlete2.last_name} (${currentMatch.athlete2.coaches_last_name})`
-                  : "FIGHTER 1"}
+                {leftFighter?.athlete
+                  ? `${leftFighter.athlete.last_name} ${leftFighter.athlete.first_name} (${leftFighter.athlete.coaches_last_name})`
+                  : "Left Fighter"}
               </div>
             </div>
 
-            {/* Score Display - Fighter 2 (25% from right edge) */}
+            {/* Right Fighter Score */}
             <div className="absolute top-1/2 right-1/6 transform translate-x-1/2 -translate-y-1/2 text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
-              <div className="text-[20rem] font-bold text-red-500 leading-none">{score1}</div>
-              {renderDots(shido1)}
+              <div className={`text-[20rem] font-bold leading-none ${rightFighter.colorClass}`}>
+                {rightFighter.score}
+              </div>
+              {renderDots(rightFighter.shido)}
             </div>
 
-            {/* Seshu - Fighter 2 */}
+            {/* Seshu - Right Fighter */}
             <div className="absolute top-1/4 right-30 transform text-center drop-shadow-[0_0_10px_rgba(0,0,0,0.7)] z-10">
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors duration-200 ${senshu === 1 ? "bg-green-500" : ""}`}
+                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors duration-200 ${rightFighter.senshuActive ? "bg-green-500" : ""}`}
               ></div>
             </div>
 
-            {/* Name Display - Fighter 2 (25% from right edge, lower) */}
+            {/* Name Display - Right Fighter (25% from right edge, lower) */}
             <div className="absolute top-7/8 right-1/6 transform translate-x-1/2 -translate-y-1/2 text-center z-10">
               <div className="text-5xl max-w-xl break-words leading-tight drop-shadow-[0_0_10px_rgba(0,0,0,0.7)]">
-                {currentMatch?.athlete1
-                  ? `${currentMatch.athlete1.first_name} ${currentMatch.athlete1.last_name} (${currentMatch.athlete1.coaches_last_name})`
-                  : "FIGHTER 2"}
+                {rightFighter?.athlete
+                  ? `${rightFighter.athlete.last_name} ${rightFighter.athlete.first_name} (${rightFighter.athlete.coaches_last_name})`
+                  : "Right Fighter"}
               </div>
             </div>
           </>
