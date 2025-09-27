@@ -43,14 +43,14 @@ async def start_match(match_id: str, db: AsyncSession = Depends(get_db)) -> dict
     if match is None:
         raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
 
-    if match.status == "in_progress":
+    if match.status == "started":
         raise HTTPException(status_code=400, detail=f"Match {match_id} is already in progress")
 
     if match.status == "finished":
         raise HTTPException(status_code=400, detail=f"Match {match_id} is already finished")
 
     # Update match status and start time
-    match.status = "in_progress"
+    match.status = "started"
     match.started_at = datetime.now(timezone.utc)
 
     # Create outbox entry for external API notification

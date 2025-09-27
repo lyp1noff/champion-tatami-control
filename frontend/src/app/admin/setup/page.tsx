@@ -3,7 +3,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getTournaments, getCurrentTournament, setCurrentTournament, getTatamis, syncTournament } from "@/lib/api";
+import {
+  getTournaments,
+  getCurrentTournament,
+  setCurrentTournament,
+  getTatamis,
+  syncTournament,
+  getOutboxStatus,
+} from "@/lib/api";
 import { Tournament } from "@/lib/interfaces";
 
 export default function SetupPage() {
@@ -12,8 +19,18 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [selectedTournament, setSelectedTournament] = useState<number | null>(null);
+  const [outboxStatus, setOutboxStatus] = useState<{
+    total: number;
+    pending: number;
+    failed: number;
+    succeeded: number;
+  } | null>(null);
 
   // Fetch outbox status every 10 seconds
+  useEffect(() => {
+    fetchOutboxStatus();
+  }, []);
+
   useEffect(() => {
     const interval = setInterval(fetchOutboxStatus, 10000);
     return () => clearInterval(interval);
@@ -51,9 +68,8 @@ export default function SetupPage() {
 
   const fetchOutboxStatus = async () => {
     try {
-      console.log("fetching outbox status");
-      // const data = await getOutboxStatus();
-      // setOutboxStatus(data);
+      const data = await getOutboxStatus();
+      setOutboxStatus(data);
     } catch (error) {
       console.error("Error fetching outbox status:", error);
     }
@@ -111,6 +127,31 @@ export default function SetupPage() {
           <h1 className="text-3xl font-bold text-gray-900 mb-8">Tournament Setup</h1>
 
           <div className="space-y-6">
+            {/* Outbox Status */}
+            {outboxStatus && (
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Outbox Summary</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-2xl font-bold text-gray-900">{outboxStatus.total}</p>
+                    <p className="text-sm text-gray-600">Total</p>
+                  </div>
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <p className="text-2xl font-bold text-green-800">{outboxStatus.succeeded}</p>
+                    <p className="text-sm text-green-700">Succeeded</p>
+                  </div>
+                  <div className="p-4 bg-yellow-50 rounded-lg">
+                    <p className="text-2xl font-bold text-yellow-800">{outboxStatus.pending}</p>
+                    <p className="text-sm text-yellow-700">Pending</p>
+                  </div>
+                  <div className="p-4 bg-red-50 rounded-lg">
+                    <p className="text-2xl font-bold text-red-800">{outboxStatus.failed}</p>
+                    <p className="text-sm text-red-700">Failed</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Tournament Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Tournament</label>

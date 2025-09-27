@@ -289,14 +289,14 @@ export default function ManageTatami() {
           className={`px-3 py-1 rounded-full text-sm font-medium ${
             currentMatch?.status === "not_started"
               ? "bg-gray-100 text-gray-800"
-              : currentMatch?.status === "in_progress" || currentMatch?.status === "started"
+              : currentMatch?.status === "started"
                 ? "bg-green-100 text-green-800"
                 : "bg-red-100 text-red-800"
           }`}
         >
           {currentMatch?.status === "not_started"
             ? "Not Started"
-            : currentMatch?.status === "in_progress" || currentMatch?.status === "started"
+            : currentMatch?.status === "started"
               ? "Match Started"
               : "Match Finished"}
         </span>
@@ -305,7 +305,7 @@ export default function ManageTatami() {
       {currentMatch?.status === "not_started" && (
         <StartMatchDialog currentMatch={currentMatch} status={status} onStartMatch={startMatch} />
       )}
-      {(currentMatch?.status === "started" || currentMatch?.status === "in_progress") && (
+      {currentMatch?.status === "started" && (
         <>
           <TimerDisplay remaining={remaining} durationMs={durationMs} />
 

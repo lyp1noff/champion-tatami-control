@@ -30,7 +30,7 @@ export interface ExternalMatch {
   };
   score_athlete1?: number;
   score_athlete2?: number;
-  status: "not_started" | "started" | "in_progress" | "finished";
+  status: "not_started" | "started" | "finished";
   started_at?: string;
   ended_at?: string;
 }

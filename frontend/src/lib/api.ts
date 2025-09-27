@@ -115,13 +115,18 @@ export async function syncTournament(tournamentId: number): Promise<SyncTourname
   return response.json();
 }
 
-// export async function getOutboxStatus(): Promise<any> {
-//   const response = await fetch(`${BACKEND_URL}/outbox/status`);
-//   if (!response.ok) {
-//     throw new Error("Failed to fetch outbox status");
-//   }
-//   return response.json();
-// }
+export async function getOutboxStatus(): Promise<{
+  total: number;
+  pending: number;
+  failed: number;
+  succeeded: number;
+}> {
+  const res = await fetch(`${BACKEND_URL}/outbox/status`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error("Failed to fetch outbox status");
+  }
+  return res.json();
+}
 
 // Tatami API functions
 export async function getTournament(tournamentId: string): Promise<Tournament> {
