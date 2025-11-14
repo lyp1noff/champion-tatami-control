@@ -69,22 +69,22 @@ export default function ManageTatami() {
     }
   }, [match_id, isHydrated, loadMatchData, setMatch]);
 
-  const startMatch = async () => {
-    if (!currentMatch) {
-      alert("Please select a match first");
-      return;
-    }
-
-    try {
-      if (match_id !== "empty") {
-        await startMatchApi(match_id as string);
-      }
-      setState({ currentMatch: { ...currentMatch, status: "started" } });
-    } catch (error) {
-      console.error("Error starting match:", error);
-      alert("Error starting match");
-    }
-  };
+  // const startMatch = async () => {
+  //   if (!currentMatch) {
+  //     alert("Please select a match first");
+  //     return;
+  //   }
+  //
+  //   try {
+  //     if (match_id !== "empty") {
+  //       await startMatchApi(match_id as string);
+  //     }
+  //     setState({ currentMatch: { ...currentMatch, status: "started" } });
+  //   } catch (error) {
+  //     console.error("Error starting match:", error);
+  //     alert("Error starting match");
+  //   }
+  // };
 
   const finishMatch = async (winnerId: number) => {
     if (!currentMatch) {
@@ -110,16 +110,43 @@ export default function ManageTatami() {
     }
   }, [startTimestamp, pausedElapsed, setState]);
 
-  const resume = useCallback(() => {
+  const beginRun = useCallback(() => {
     const now = Date.now();
     setState({ status: "running", startTimestamp: now });
   }, [setState]);
 
+  const resume = useCallback(() => {
+    beginRun();
+  }, [beginRun]);
+
+  const start = useCallback(async () => {
+    if (!currentMatch) {
+      alert("Please select a match first");
+      return;
+    }
+
+    try {
+      if (match_id !== "empty") {
+        await startMatchApi(match_id as string);
+      }
+
+      setState({ currentMatch: { ...currentMatch, status: "started" } });
+    } catch (error) {
+      console.error("Error starting match:", error);
+      alert("Error starting match");
+      return;
+    }
+
+    beginRun();
+  }, [currentMatch, match_id, setState, beginRun]);
+
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.code === "Space") {
         e.preventDefault();
-        if (status === "idle" || status === "paused") {
+        if (status === "idle") {
+          await start();
+        } else if (status === "paused") {
           resume();
         } else {
           pause();
@@ -129,7 +156,7 @@ export default function ManageTatami() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [status, resume, pause]);
+  }, [status, resume, pause, start]);
 
   const adjustScore = async (fighter: 1 | 2, delta: number) => {
     if (!currentMatch) {
@@ -301,15 +328,11 @@ export default function ManageTatami() {
               : "Match Finished"}
         </span>
       </div>
-
-      {currentMatch?.status === "not_started" && (
-        <StartMatchDialog currentMatch={currentMatch} status={status} onStartMatch={startMatch} />
-      )}
-      {currentMatch?.status === "started" && (
+      {currentMatch && currentMatch.status !== "finished" ? (
         <>
           <TimerDisplay remaining={remaining} durationMs={durationMs} />
 
-          <MatchControls status={status} onPause={pause} onResume={resume} />
+          <MatchControls status={status} onStart={start} onPause={pause} onResume={resume} />
 
           <FighterControls
             currentMatch={currentMatch}
@@ -341,17 +364,17 @@ export default function ManageTatami() {
             onSaveTimeSetting={saveTimeSetting}
           />
 
-          <FinishMatchDialog
-            currentMatch={currentMatch}
-            score1={score1}
-            score2={score2}
-            swap_status={swap_status}
-            onFinishMatch={finishMatch}
-          />
+          {currentMatch.status === "started" && (
+            <FinishMatchDialog
+              currentMatch={currentMatch}
+              score1={score1}
+              score2={score2}
+              swap_status={swap_status}
+              onFinishMatch={finishMatch}
+            />
+          )}
         </>
-      )}
-
-      {(!currentMatch || currentMatch?.status === "finished") && (
+      ) : (
         <div className="border rounded-lg p-4 bg-blue-50">
           <div className="text-gray-600">
             No match selected. Please go to{" "}

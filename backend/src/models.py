@@ -31,9 +31,7 @@ class Tournament(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String, nullable=False)
 
     brackets: Mapped[List["Bracket"]] = relationship("Bracket", back_populates="tournament", cascade="all, delete")
-    outbox_items: Mapped[List["OutboxItem"]] = relationship(
-        "OutboxItem", back_populates="tournament"
-    )
+    outbox_items: Mapped[List["OutboxItem"]] = relationship("OutboxItem", back_populates="tournament")
 
 
 class Bracket(Base, TimestampMixin):
@@ -123,12 +121,8 @@ class OutboxItem(Base, TimestampMixin):
     __tablename__ = "outbox_items"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    tournament_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("tournaments.id"), nullable=True
-    )
-    match_id: Mapped[Optional[int]] = mapped_column(
-        Integer, ForeignKey("matches.id"), nullable=True
-    )
+    tournament_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("tournaments.id"), nullable=True)
+    match_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("matches.id"), nullable=True)
     endpoint: Mapped[str] = mapped_column(String, nullable=False)
     method: Mapped[str] = mapped_column(String, nullable=False)
     payload: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
