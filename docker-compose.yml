@@ -18,15 +18,9 @@ services:
       retries: 10
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: ./Dockerfile
-    pull_policy: build
+    image: ghcr.io/lyp1noff/champion-tatami-backend:${IMAGE_TAG:-latest}
     container_name: champion-tatami-backend
-    image: champion-tatami-backend:latest
     restart: always
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
     environment:
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=${POSTGRES_PORT}
@@ -41,25 +35,16 @@ services:
         condition: service_healthy
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: ./Dockerfile
-      args:
-        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
-    pull_policy: build
+    image: ghcr.io/lyp1noff/champion-tatami-frontend:${IMAGE_TAG:-latest}
     container_name: champion-tatami-frontend
-    image: champion-tatami-frontend:latest
+    pull_policy: build
     restart: always
-    ports:
-      - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       - backend
   
   outbox:
-    build:
-      context: ./outbox
-      dockerfile: ./Dockerfile
-    image: champion-tatami-outbox:latest
+    image: ghcr.io/lyp1noff/champion-tatami-outbox:${IMAGE_TAG:-latest}
+    container_name: champion-tatami-outbox
     environment:
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=${POSTGRES_PORT}
@@ -70,6 +55,18 @@ services:
       - EXTERNAL_API_TOKEN=${EXTERNAL_API_TOKEN}
     restart: unless-stopped
     depends_on:
+      - backend
+
+  nginx:
+    image: nginx:alpine
+    container_name: champion-tatami-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
       - backend
 
 volumes:
