@@ -20,6 +20,7 @@ services:
   backend:
     image: ghcr.io/lyp1noff/champion-tatami-backend:${IMAGE_TAG:-latest}
     container_name: champion-tatami-backend
+    pull_policy: always
     restart: always
     environment:
       - POSTGRES_HOST=${POSTGRES_HOST}
@@ -37,7 +38,7 @@ services:
   frontend:
     image: ghcr.io/lyp1noff/champion-tatami-frontend:${IMAGE_TAG:-latest}
     container_name: champion-tatami-frontend
-    pull_policy: build
+    pull_policy: always
     restart: always
     depends_on:
       - backend
@@ -45,6 +46,7 @@ services:
   outbox:
     image: ghcr.io/lyp1noff/champion-tatami-outbox:${IMAGE_TAG:-latest}
     container_name: champion-tatami-outbox
+    pull_policy: always
     environment:
       - POSTGRES_HOST=${POSTGRES_HOST}
       - POSTGRES_PORT=${POSTGRES_PORT}
