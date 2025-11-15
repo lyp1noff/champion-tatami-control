@@ -48,16 +48,21 @@ func (p *OutboxProcessor) Run(ctx context.Context, interval time.Duration, _ int
 				continue
 			}
 
-			if err := p.httpClient.SendRequest(*item); err != nil {
-				p.logger.Error("Item %d failed: %v", item.ID, err)
-				_ = p.repo.MarkFailure(ctx, item.ID, err.Error())
-				time.Sleep(10 * time.Second)
+			retry, err := p.httpClient.SendRequest(*item)
+			if err != nil {
+				if retry {
+					p.logger.Error("Item %d retryable failure: %v", item.ID, err)
+					_ = p.repo.MarkFailure(ctx, item.ID, err.Error())
+					time.Sleep(10 * time.Second)
+					continue
+				}
+
+				p.logger.Warn("Item %d non-retryable failure (skipped): %v", item.ID, err)
+				_ = p.repo.MarkSkipped(ctx, item.ID, err.Error())
 				continue
 			}
 
-			if err := p.repo.MarkSuccess(ctx, item.ID); err != nil {
-				p.logger.Error("MarkSuccess error for item %d: %v", item.ID, err)
-			}
+			_ = p.repo.MarkSuccess(ctx, item.ID)
 		}
 	}
 }

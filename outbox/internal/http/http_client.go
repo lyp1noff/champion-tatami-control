@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"outbox-worker/internal/logger"
 
@@ -31,8 +30,23 @@ func NewHTTPClient(config *config.Config, logger *logger.Logger) *HTTPClient {
 	}
 }
 
+func shouldRetry(status int) bool {
+	switch {
+	case status >= 500:
+		return true
+	case status == 408:
+		return true
+	case status == 429:
+		return true
+	case status == 409:
+		return true
+	default:
+		return false
+	}
+}
+
 // SendRequest sends an HTTP request for an outbox item
-func (c *HTTPClient) SendRequest(item database.OutboxItem) error {
+func (c *HTTPClient) SendRequest(item database.OutboxItem) (bool, error) {
 	c.logger.Debug("Sending %s %s", item.Method, item.Endpoint)
 	if item.Payload != nil {
 		c.logger.Debug("Payload: %s", *item.Payload)
@@ -48,7 +62,7 @@ func (c *HTTPClient) SendRequest(item database.OutboxItem) error {
 	req, err := http.NewRequest(item.Method, item.Endpoint, body)
 	if err != nil {
 		c.logger.Error("Failed to create request for item %d: %v", item.ID, err)
-		return fmt.Errorf("failed to create request: %w", err)
+		return true, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	if body != nil {
@@ -58,23 +72,21 @@ func (c *HTTPClient) SendRequest(item database.OutboxItem) error {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
 
-	start := time.Now()
 	resp, err := c.client.Do(req)
-	duration := time.Since(start)
-
 	if err != nil {
-		c.logger.Error("Request failed for item %d after %v: %v", item.ID, duration, err)
-		return fmt.Errorf("request failed: %w", err)
+		return true, fmt.Errorf("network error: %w", err)
 	}
 	defer resp.Body.Close()
 
-	c.logger.Debug("Request for item %d completed in %v with status: %d", item.ID, duration, resp.StatusCode)
+	status := resp.StatusCode
 
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		c.logger.Debug("Request for item %d successful", item.ID)
-		return nil
+	if status >= 200 && status < 300 {
+		return false, nil
 	}
 
-	c.logger.Error("Request for item %d failed with non-2xx status: %d", item.ID, resp.StatusCode)
-	return fmt.Errorf("non-2xx response: %d", resp.StatusCode)
+	if shouldRetry(status) {
+		return true, fmt.Errorf("retryable status %d", status)
+	}
+
+	return false, fmt.Errorf("non-retryable status %d", status)
 }

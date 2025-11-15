@@ -27,6 +27,8 @@ export function FighterControls({
   onSetSenshu,
 }: FighterControlsProps) {
   const fighters = swap_status ? [2, 1] : [1, 2];
+  const disabled = currentMatch?.status !== "started";
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {fighters.map((id) => {
@@ -45,6 +47,7 @@ export function FighterControls({
             <div className="mb-4">
               <div className="flex flex-row pb-2">
                 <Button
+                  disabled={disabled}
                   variant="outline"
                   onClick={() => onSetSenshu(senshu === id ? 0 : (id as 1 | 2))}
                   className={`size-sm w-10 transition-color ${
@@ -60,6 +63,7 @@ export function FighterControls({
                 <div className="flex gap-2 justify-center">
                   {[1, 2, 3].map((v) => (
                     <Button
+                      disabled={disabled}
                       key={v}
                       variant="outline"
                       className="w-10"
@@ -74,6 +78,7 @@ export function FighterControls({
                 <div className="flex gap-2 justify-center">
                   {[-1, -2, -3].map((v) => (
                     <Button
+                      disabled={disabled}
                       key={v}
                       variant="outline"
                       className="w-10"
@@ -99,6 +104,7 @@ export function FighterControls({
                   { value: 5, label: "H" },
                 ].map(({ value, label }) => (
                   <Button
+                    disabled={disabled}
                     key={value}
                     variant={value === (id === 1 ? shido1 : shido2) ? "default" : "outline"}
                     size="sm"

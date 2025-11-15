@@ -10,7 +10,7 @@ import { MatchControls } from "./components/MatchControls";
 import { FighterControls } from "./components/FighterControls";
 import { TimeAdjustment } from "./components/TimeAdjustment";
 import { FinishMatchDialog } from "./components/FinishMatchDialog";
-import { StartMatchDialog } from "./components/StartMatchDialog";
+//import { StartMatchDialog } from "./components/StartMatchDialog";
 import { finishMatch as finishMatchApi, getMatch, startMatch as startMatchApi, updateScores } from "@/lib/api";
 import { TimeSetting } from "./components/TimeSetting";
 import { createEmptyMatch } from "@/lib/emptyMatch";

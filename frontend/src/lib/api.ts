@@ -8,7 +8,7 @@ import {
   SyncTournamentResponse,
 } from "./interfaces";
 
-const BACKEND_URL = '/api';
+export const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "/api";
 
 export async function getMatch(matchId: string): Promise<ExternalMatch> {
   const response = await fetch(`${BACKEND_URL}/matches/${matchId}`);

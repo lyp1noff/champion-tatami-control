@@ -86,3 +86,14 @@ func (r *OutboxRepository) MarkFailure(ctx context.Context, id int, errMsg strin
 	`, id, errMsg)
 	return err
 }
+
+func (r *OutboxRepository) MarkSkipped(ctx context.Context, id int, errMsg string) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE outbox_items
+		SET status='skipped',
+		    error = $2,
+		    updated_at = NOW()
+		WHERE id = $1
+	`, id, errMsg)
+	return err
+}
