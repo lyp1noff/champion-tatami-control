@@ -49,6 +49,9 @@ async def start_match(match_id: str, db: AsyncSession = Depends(get_db)) -> dict
     if match.status == "finished":
         raise HTTPException(status_code=400, detail=f"Match {match_id} is already finished")
 
+    if match.athlete1_id is None or match.athlete2_id is None:
+        raise HTTPException(400, "Match has no athletes")
+
     # Update match status and start time
     match.status = "started"
     match.started_at = datetime.now(timezone.utc)

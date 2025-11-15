@@ -125,6 +125,11 @@ export default function ManageTatami() {
       return;
     }
 
+    if (currentMatch.status === "started") {
+      beginRun();
+      return;
+    }
+
     try {
       if (match_id !== "empty") {
         await startMatchApi(match_id as string);
