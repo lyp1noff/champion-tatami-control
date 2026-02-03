@@ -1,5 +1,5 @@
 from datetime import time
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 from sqlalchemy import delete, select
@@ -29,7 +29,7 @@ def _parse_time_value(raw: str | None) -> Optional[time]:
     return None
 
 
-async def _upsert_athlete_from_payload(db: AsyncSession, athlete_payload: dict | None) -> Optional[Athlete]:
+async def _upsert_athlete_from_payload(db: AsyncSession, athlete_payload: dict[str, Any] | None) -> Optional[Athlete]:
     if not athlete_payload:
         return None
 
@@ -58,7 +58,9 @@ async def _upsert_athlete_from_payload(db: AsyncSession, athlete_payload: dict |
     return athlete
 
 
-async def _upsert_athlete_from_participant_payload(db: AsyncSession, participant_payload: dict) -> Optional[Athlete]:
+async def _upsert_athlete_from_participant_payload(
+    db: AsyncSession, participant_payload: dict[str, Any]
+) -> Optional[Athlete]:
     ext_id = participant_payload.get("athlete_id")
     if ext_id is None:
         return None
@@ -94,7 +96,7 @@ async def _upsert_athlete_from_participant_payload(db: AsyncSession, participant
 
 async def _upsert_match(
     db: AsyncSession,
-    match_data: dict,
+    match_data: dict[str, Any],
     athlete1: Optional[Athlete],
     athlete2: Optional[Athlete],
 ) -> Match:
@@ -144,7 +146,7 @@ async def _upsert_match(
 async def _sync_bracket_participants(
     db: AsyncSession,
     bracket: Bracket,
-    remote_participants: list[dict],
+    remote_participants: list[dict[str, Any]],
 ) -> None:
     await db.execute(delete(BracketParticipant).where(BracketParticipant.bracket_id == bracket.id))
 
@@ -163,7 +165,9 @@ async def _sync_bracket_participants(
         )
 
 
-async def _sync_timetable_entries(db: AsyncSession, tournament: Tournament, remote_entries: list[dict]) -> int:
+async def _sync_timetable_entries(
+    db: AsyncSession, tournament: Tournament, remote_entries: list[dict[str, Any]]
+) -> int:
     bracket_rows = await db.execute(select(Bracket).where(Bracket.tournament_id == tournament.id))
     bracket_by_external_id = {br.external_id: br for br in bracket_rows.scalars().all()}
 
@@ -228,7 +232,7 @@ async def sync_tournament(tournament_id: int, db: AsyncSession, force: bool = Fa
             timetable_resp.raise_for_status()
             timetable_entries = timetable_resp.json()
 
-        participants_by_bracket_external_id: dict[int, list[dict]] = {
+        participants_by_bracket_external_id: dict[int, list[dict[str, Any]]] = {
             int(item["id"]): item.get("participants", [])
             for item in brackets_full
             if isinstance(item, dict) and item.get("id") is not None

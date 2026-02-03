@@ -1,3 +1,5 @@
+from champion_domain import get_round_type
+
 from src.models import Athlete, BracketMatch, Match
 from src.schemas import AthleteSchema, BracketMatchSchema, MatchSchema, MatchWithBracketSchema
 
@@ -47,12 +49,31 @@ def serialize_match_with_bracket(match: Match) -> MatchWithBracketSchema:
     )
 
 
-def serialize_bracket_match(bracketMatch: BracketMatch) -> BracketMatchSchema:
+def serialize_bracket_match(bracketMatch: BracketMatch, main_rounds: int | None = None) -> BracketMatchSchema:
+    round_type = "round"
+    if main_rounds and bracketMatch.round_number <= main_rounds:
+        round_type = get_round_type(bracketMatch.round_number - 1, main_rounds)
+
+    match = bracketMatch.match
+    match_schema = MatchSchema(
+        id=match.id,
+        external_id=match.external_id,
+        round_type=round_type,
+        athlete1=serialize_athlete(match.athlete1) if match.athlete1 else None,
+        athlete2=serialize_athlete(match.athlete2) if match.athlete2 else None,
+        winner_id=match.winner_id,
+        score_athlete1=match.score_athlete1,
+        score_athlete2=match.score_athlete2,
+        status=match.status,
+        started_at=match.started_at,
+        ended_at=match.ended_at,
+    )
+
     return BracketMatchSchema(
         id=bracketMatch.id,
         external_id=bracketMatch.external_id,
         round_number=bracketMatch.round_number,
         position=bracketMatch.position,
-        match=serialize_match(bracketMatch.match),
+        match=match_schema,
         next_slot=bracketMatch.next_slot,
     )

@@ -73,5 +73,5 @@ async def get_brackets(tournament_id: int, db: AsyncSession = Depends(get_db)) -
             return (999, 999, "99:99:99", bracket.external_id)
         return (entry.day, entry.tatami, entry.start_time.strftime("%H:%M:%S"), bracket.external_id)
 
-    brackets.sort(key=sort_key)
-    return [BracketSchema.model_validate(b) for b in brackets]
+    sorted_brackets = sorted(brackets, key=sort_key)
+    return [BracketSchema.model_validate(b) for b in sorted_brackets]

@@ -30,7 +30,11 @@ async def get_bracket_matches(bracket_id: int, db: AsyncSession = Depends(get_db
     matches = result.scalars().all()
     if not matches:
         raise HTTPException(status_code=404, detail=f"Bracket {bracket_id} not found")
-    return [serialize_bracket_match(m) for m in matches]
+
+    final_round_candidates = [m.round_number for m in matches if m.next_slot is None]
+    main_rounds = min(final_round_candidates) if final_round_candidates else None
+
+    return [serialize_bracket_match(m, main_rounds=main_rounds) for m in matches]
 
 
 @router.post("/{bracket_id}/publish-structure")

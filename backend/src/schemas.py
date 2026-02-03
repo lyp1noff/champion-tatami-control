@@ -67,6 +67,7 @@ class AthleteSchema(CustomBaseModel):
 class MatchSchema(CustomBaseModel):
     id: int
     external_id: str
+    round_type: Optional[str] = None
     athlete1: Optional[AthleteSchema]
     athlete2: Optional[AthleteSchema]
     winner_id: Optional[int]

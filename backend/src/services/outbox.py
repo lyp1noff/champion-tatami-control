@@ -1,9 +1,11 @@
 import json
+import math
 from datetime import UTC, datetime
 from typing import Any, Optional
 from uuid import uuid4
 
-from sqlalchemy import select
+from champion_domain import get_round_type
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -152,6 +154,13 @@ async def create_bracket_structure_rebuilt_outbox(bracket: Bracket, db: AsyncSes
     )
     bracket_matches = matches_result.scalars().all()
 
+    participants_count = await db.scalar(
+        select(func.count())
+        .select_from(BracketParticipant)
+        .where(BracketParticipant.bracket_id == bracket.id, BracketParticipant.athlete_id.is_not(None))
+    )
+    main_rounds = int(math.ceil(math.log2(participants_count))) if participants_count and participants_count >= 2 else 0
+
     payload_participants: list[dict[str, int | None]] = []
     for participant in participants:
         payload_participants.append(
@@ -167,6 +176,18 @@ async def create_bracket_structure_rebuilt_outbox(bracket: Bracket, db: AsyncSes
         if match is None:
             continue
 
+        is_repechage = main_rounds > 0 and bm.round_number > main_rounds
+        rep_side = None
+        rep_step = None
+        stage = "main"
+        if is_repechage:
+            stage = "repechage"
+            rep_side = "A" if bm.position == 1 else "B"
+            rep_step = bm.round_number - main_rounds
+        round_type = "round"
+        if not is_repechage and main_rounds > 0:
+            round_type = get_round_type(bm.round_number - 1, main_rounds)
+
         winner_external_id: int | None = None
         if match.winner_id is not None:
             winner = await db.get(Athlete, match.winner_id)
@@ -178,6 +199,10 @@ async def create_bracket_structure_rebuilt_outbox(bracket: Bracket, db: AsyncSes
                 "round_number": bm.round_number,
                 "position": bm.position,
                 "next_slot": bm.next_slot,
+                "round_type": round_type,
+                "stage": stage,
+                "repechage_side": rep_side,
+                "repechage_step": rep_step,
                 "status": match.status,
                 "athlete1_id": match.athlete1.external_id if match.athlete1 else None,
                 "athlete2_id": match.athlete2.external_id if match.athlete2 else None,
