@@ -54,9 +54,18 @@ export default function TatamiSetupPage() {
         const data = await getBrackets(selectedTournament!.toString());
 
         // Filter brackets assigned to this tatami
-        const assignedBrackets = data.filter(
-          (bracket: Bracket) => bracket.tatami && bracket.tatami.toString() === tatamiId,
-        );
+        const assignedBrackets = data
+          .filter((bracket: Bracket) => bracket.tatami !== undefined && bracket.tatami !== null)
+          .filter((bracket: Bracket) => String(bracket.tatami) === String(tatamiId))
+          .sort((a, b) => {
+            const dayA = a.day ?? 999;
+            const dayB = b.day ?? 999;
+            if (dayA !== dayB) return dayA - dayB;
+
+            const timeA = a.start_time ?? "99:99:99";
+            const timeB = b.start_time ?? "99:99:99";
+            return timeA.localeCompare(timeB);
+          });
 
         setBrackets(assignedBrackets);
       } catch (error) {
@@ -193,7 +202,7 @@ export default function TatamiSetupPage() {
                   <SelectContent>
                     {brackets.map((bracket) => (
                       <SelectItem key={String(bracket.external_id)} value={String(bracket.external_id)}>
-                        Day {bracket.day} - {bracket.start_time?.slice(0, 5)} - {bracket.display_name}
+                        Day {bracket.day ?? "-"} - {bracket.start_time?.slice(0, 5) ?? "--:--"} - {bracket.display_name}
                       </SelectItem>
                     ))}
                   </SelectContent>

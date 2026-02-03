@@ -46,11 +46,13 @@ class BracketSchema(CustomBaseModel):
     tournament_id: int
     category: str
     type: str
-    tatami: Optional[int] = 1
+    tatami: Optional[int] = None
     group_id: int = 1
-    start_time: str
-    day: int = 1
+    start_time: Optional[str] = None
+    day: Optional[int] = None
     status: Optional[str]
+    state: Optional[str] = "draft"
+    version: int = 1
     display_name: Optional[str]
 
 

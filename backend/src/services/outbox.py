@@ -1,12 +1,14 @@
 import json
+from datetime import UTC, datetime
 from typing import Any, Optional
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from src.config import EXTERNAL_API_URL
-from src.models import Athlete, BracketMatch, Match, OutboxItem
+from src.config import EDGE_ID, EXTERNAL_API_URL
+from src.models import Athlete, Bracket, BracketMatch, BracketParticipant, Match, OutboxItem
 
 
 async def get_tournament_id_for_match(match_id: int, db: AsyncSession) -> Optional[int]:
@@ -18,21 +20,31 @@ async def get_tournament_id_for_match(match_id: int, db: AsyncSession) -> Option
     return bm.bracket.tournament_id if bm else None
 
 
+async def get_bracket_for_match(match_id: int, db: AsyncSession) -> Optional[Bracket]:
+    bm_result = await db.execute(
+        select(BracketMatch).where(BracketMatch.match_id == match_id).options(selectinload(BracketMatch.bracket))
+    )
+    bm = bm_result.scalar_one_or_none()
+    return bm.bracket if bm else None
+
+
 async def create_outbox_entry(
     db: AsyncSession,
-    endpoint: str,
-    method: str,
+    event_type: str,
+    aggregate_type: str,
+    aggregate_id: str,
+    aggregate_version: int,
     payload: Optional[dict[str, Any]] = None,
     tournament_id: Optional[int] = None,
     match_id: Optional[int] = None,
 ) -> OutboxItem:
-    """Create an outbox entry for external API communication."""
+    """Create an outbox entry that targets master /sync/commands API."""
     outbox_item = OutboxItem(
         tournament_id=tournament_id,
         match_id=match_id,
-        endpoint=endpoint,
-        method=method,
-        payload=json.dumps(payload) if payload else None,
+        endpoint=f"{EXTERNAL_API_URL}/sync/commands",
+        method="POST",
+        payload=None,
         status="pending",
         retry_count=0,
         max_retries=30,
@@ -41,58 +53,156 @@ async def create_outbox_entry(
     db.add(outbox_item)
     await db.flush()
 
+    event = {
+        "event_id": str(uuid4()),
+        "seq": outbox_item.id,
+        "event_type": event_type,
+        "aggregate_type": aggregate_type,
+        "aggregate_id": aggregate_id,
+        "aggregate_version": aggregate_version,
+        "occurred_at": datetime.now(UTC).isoformat(),
+        "payload": payload or {},
+    }
+
+    outbox_item.payload = json.dumps({"edge_id": EDGE_ID, "events": [event]})
+    await db.flush()
+
     return outbox_item
 
 
-async def create_match_start_outbox(match: Match, db: AsyncSession) -> OutboxItem:
+async def create_match_start_outbox(match: Match, aggregate_version: int, db: AsyncSession) -> OutboxItem:
     """Create outbox entry for match start event."""
     tournament_id = await get_tournament_id_for_match(match.id, db)
 
     return await create_outbox_entry(
         db=db,
-        endpoint=f"{EXTERNAL_API_URL}/matches/{match.external_id}/start",
-        method="POST",
+        event_type="match.started",
+        aggregate_type="match",
+        aggregate_id=match.external_id,
+        aggregate_version=aggregate_version,
         tournament_id=tournament_id,
         match_id=match.id,
     )
 
 
 async def create_match_finish_outbox(
-    match: Match, winner_id: int, score_athlete1: int, score_athlete2: int, db: AsyncSession
+    match: Match,
+    winner_external_id: int,
+    score_athlete1: int,
+    score_athlete2: int,
+    aggregate_version: int,
+    db: AsyncSession,
 ) -> OutboxItem:
     """Create outbox entry for match finish event."""
     tournament_id = await get_tournament_id_for_match(match.id, db)
 
-    # Get the winner's external_id
-    winner_result = await db.execute(select(Athlete).where(Athlete.id == winner_id))
-    winner = winner_result.scalar_one_or_none()
-    if not winner:
-        raise ValueError(f"Athlete with ID {winner_id} not found")
-
-    winner_external_id = winner.external_id
-
     return await create_outbox_entry(
         db=db,
-        endpoint=f"{EXTERNAL_API_URL}/matches/{match.external_id}/finish",
-        method="POST",
-        payload={"score_athlete1": score_athlete1, "score_athlete2": score_athlete2, "winner_id": winner_external_id},
+        event_type="match.finished",
+        aggregate_type="match",
+        aggregate_id=match.external_id,
+        aggregate_version=aggregate_version,
+        payload={
+            "score_athlete1": score_athlete1,
+            "score_athlete2": score_athlete2,
+            "winner_id": winner_external_id,
+        },
         tournament_id=tournament_id,
         match_id=match.id,
     )
 
 
-async def create_match_scores_outbox(match: Match, db: AsyncSession) -> OutboxItem:
+async def create_match_scores_outbox(match: Match, aggregate_version: int, db: AsyncSession) -> OutboxItem:
     """Create outbox entry for match scores update event."""
     tournament_id = await get_tournament_id_for_match(match.id, db)
 
     return await create_outbox_entry(
         db=db,
-        endpoint=f"{EXTERNAL_API_URL}/matches/{match.external_id}/scores",
-        method="PATCH",
+        event_type="match.score_updated",
+        aggregate_type="match",
+        aggregate_id=match.external_id,
+        aggregate_version=aggregate_version,
         payload={
             "score_athlete1": match.score_athlete1,
             "score_athlete2": match.score_athlete2,
         },
         tournament_id=tournament_id,
         match_id=match.id,
+    )
+
+
+async def create_bracket_structure_rebuilt_outbox(bracket: Bracket, db: AsyncSession) -> OutboxItem:
+    """Create outbox entry with full bracket snapshot for structural rebuild sync."""
+    participants_result = await db.execute(
+        select(BracketParticipant)
+        .where(BracketParticipant.bracket_id == bracket.id)
+        .options(selectinload(BracketParticipant.athlete))
+        .order_by(BracketParticipant.seed.asc())
+    )
+    participants = participants_result.scalars().all()
+
+    matches_result = await db.execute(
+        select(BracketMatch)
+        .where(BracketMatch.bracket_id == bracket.id)
+        .options(
+            selectinload(BracketMatch.match).selectinload(Match.athlete1),
+            selectinload(BracketMatch.match).selectinload(Match.athlete2),
+        )
+        .order_by(BracketMatch.round_number.asc(), BracketMatch.position.asc())
+    )
+    bracket_matches = matches_result.scalars().all()
+
+    payload_participants: list[dict[str, int | None]] = []
+    for participant in participants:
+        payload_participants.append(
+            {
+                "athlete_id": participant.athlete.external_id if participant.athlete else None,
+                "seed": participant.seed,
+            }
+        )
+
+    payload_matches: list[dict[str, Any]] = []
+    for bm in bracket_matches:
+        match = bm.match
+        if match is None:
+            continue
+
+        winner_external_id: int | None = None
+        if match.winner_id is not None:
+            winner = await db.get(Athlete, match.winner_id)
+            winner_external_id = winner.external_id if winner else None
+
+        payload_matches.append(
+            {
+                "id": match.external_id,
+                "round_number": bm.round_number,
+                "position": bm.position,
+                "next_slot": bm.next_slot,
+                "status": match.status,
+                "athlete1_id": match.athlete1.external_id if match.athlete1 else None,
+                "athlete2_id": match.athlete2.external_id if match.athlete2 else None,
+                "winner_id": winner_external_id,
+                "score_athlete1": match.score_athlete1,
+                "score_athlete2": match.score_athlete2,
+                "started_at": match.started_at.isoformat() if match.started_at else None,
+                "ended_at": match.ended_at.isoformat() if match.ended_at else None,
+            }
+        )
+
+    payload: dict[str, Any] = {
+        "status": bracket.status,
+        "state": bracket.state,
+        "participants": payload_participants,
+        "matches": payload_matches,
+    }
+
+    return await create_outbox_entry(
+        db=db,
+        event_type="bracket.structure_rebuilt",
+        aggregate_type="bracket",
+        aggregate_id=str(bracket.external_id),
+        aggregate_version=bracket.version,
+        payload=payload,
+        tournament_id=bracket.tournament_id,
+        match_id=None,
     )

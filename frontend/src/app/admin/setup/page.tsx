@@ -98,22 +98,35 @@ export default function SetupPage() {
     }
   };
 
-  const handleSyncTournament = async () => {
+  const runTournamentSync = async (force = false) => {
     if (!selectedTournament) return;
 
     try {
       setSyncing(true);
-      const result = await syncTournament(selectedTournament);
+      const result = await syncTournament(selectedTournament, force);
       console.log("sync result", result);
       await fetchAvailableTatamis(selectedTournament);
       await fetchOutboxStatus();
-      alert(`Tournament sync ${result.status}`);
+      alert(result.message ?? `Tournament sync ${result.status}`);
     } catch (error) {
       console.error("Error syncing tournament:", error);
       alert("Error syncing tournament");
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleSyncTournament = async () => {
+    await runTournamentSync(false);
+  };
+
+  const handleForceSyncTournament = async () => {
+    if (!selectedTournament) return;
+
+    const ok = window.confirm("Force sync will overwrite local running/finished brackets from master. Continue?");
+    if (!ok) return;
+
+    await runTournamentSync(true);
   };
 
   const handleTatamiSelect = (tatamiId: number) => {
@@ -173,11 +186,16 @@ export default function SetupPage() {
             </div>
 
             {/* Sync Buttons */}
-            <div className="flex space-x-4">
+            <div className="flex flex-wrap gap-4">
               {selectedTournament && (
-                <Button onClick={handleSyncTournament} disabled={syncing} variant="outline" className="px-4">
-                  {syncing ? "Syncing..." : "Sync Selected Tournament"}
-                </Button>
+                <>
+                  <Button onClick={handleSyncTournament} disabled={syncing} variant="outline" className="px-4">
+                    {syncing ? "Syncing..." : "Sync Selected Tournament"}
+                  </Button>
+                  <Button onClick={handleForceSyncTournament} disabled={syncing} variant="destructive" className="px-4">
+                    {syncing ? "Syncing..." : "Force Sync (Bypass Lock)"}
+                  </Button>
+                </>
               )}
             </div>
 

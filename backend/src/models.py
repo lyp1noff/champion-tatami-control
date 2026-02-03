@@ -1,7 +1,7 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import List, Optional
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, Time, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column, relationship
 
 
@@ -31,6 +31,9 @@ class Tournament(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String, nullable=False)
 
     brackets: Mapped[List["Bracket"]] = relationship("Bracket", back_populates="tournament", cascade="all, delete")
+    timetable_entries: Mapped[List["TimetableEntry"]] = relationship(
+        "TimetableEntry", back_populates="tournament", cascade="all, delete-orphan"
+    )
     outbox_items: Mapped[List["OutboxItem"]] = relationship("OutboxItem", back_populates="tournament")
 
 
@@ -42,17 +45,58 @@ class Bracket(Base, TimestampMixin):
     tournament_id: Mapped[int] = mapped_column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"))
     category: Mapped[str] = mapped_column(String, nullable=False)
     type: Mapped[str] = mapped_column(String, nullable=False)
-    tatami: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     group_id: Mapped[int] = mapped_column(Integer, default=1)
-    start_time: Mapped[str] = mapped_column(String, default="09:00")
-    day: Mapped[int] = mapped_column(default=1)
     status: Mapped[Optional[str]] = mapped_column(String)
+    state: Mapped[str] = mapped_column(String, nullable=False, default="draft")
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     display_name: Mapped[Optional[str]] = mapped_column(String)
 
     tournament: Mapped["Tournament"] = relationship("Tournament", back_populates="brackets")
     matches: Mapped[List["BracketMatch"]] = relationship(
         "BracketMatch", back_populates="bracket", cascade="all, delete"
     )
+    participants: Mapped[List["BracketParticipant"]] = relationship(
+        "BracketParticipant", back_populates="bracket", cascade="all, delete-orphan"
+    )
+    timetable_entry: Mapped[Optional["TimetableEntry"]] = relationship(
+        "TimetableEntry", back_populates="bracket", uselist=False, cascade="all, delete-orphan"
+    )
+
+    @property
+    def tatami(self) -> Optional[int]:
+        return self.timetable_entry.tatami if self.timetable_entry is not None else None
+
+    @property
+    def day(self) -> Optional[int]:
+        return self.timetable_entry.day if self.timetable_entry is not None else None
+
+    @property
+    def start_time(self) -> Optional[str]:
+        if self.timetable_entry is None:
+            return None
+        return self.timetable_entry.start_time.strftime("%H:%M:%S")
+
+
+class TimetableEntry(Base, TimestampMixin):
+    __tablename__ = "timetable_entries"
+    __table_args__ = (UniqueConstraint("bracket_id", name="uix_timetable_bracket_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    tournament_id: Mapped[int] = mapped_column(Integer, ForeignKey("tournaments.id", ondelete="CASCADE"), index=True)
+    bracket_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("brackets.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    entry_type: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    day: Mapped[int] = mapped_column(Integer, nullable=False)
+    tatami: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[time] = mapped_column(Time, nullable=False)
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    tournament: Mapped["Tournament"] = relationship("Tournament", back_populates="timetable_entries")
+    bracket: Mapped[Optional["Bracket"]] = relationship("Bracket", back_populates="timetable_entry")
 
 
 class Athlete(Base, TimestampMixin):
@@ -69,6 +113,9 @@ class Athlete(Base, TimestampMixin):
     )
     matches_as_athlete2: Mapped[List["Match"]] = relationship(
         "Match", foreign_keys="[Match.athlete2_id]", back_populates="athlete2"
+    )
+    bracket_participations: Mapped[List["BracketParticipant"]] = relationship(
+        "BracketParticipant", back_populates="athlete"
     )
 
 
@@ -115,6 +162,20 @@ class BracketMatch(Base):
 
     bracket: Mapped["Bracket"] = relationship("Bracket", back_populates="matches")
     match: Mapped["Match"] = relationship("Match", back_populates="bracket_matches")
+
+
+class BracketParticipant(Base):
+    __tablename__ = "bracket_participants"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    bracket_id: Mapped[int] = mapped_column(Integer, ForeignKey("brackets.id", ondelete="CASCADE"), index=True)
+    athlete_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("athletes.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    seed: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    bracket: Mapped["Bracket"] = relationship("Bracket", back_populates="participants")
+    athlete: Mapped[Optional["Athlete"]] = relationship("Athlete", back_populates="bracket_participations")
 
 
 class OutboxItem(Base, TimestampMixin):
