@@ -24,6 +24,10 @@ def to_match_with_bracket_schema(match: Match) -> MatchWithBracketSchema:
         id=match.id,
         bracket_display_name=bracket_display_name,
         external_id=match.external_id,
+        round_type=match.round_type,
+        stage=match.stage,
+        repechage_side=match.repechage_side,
+        repechage_step=match.repechage_step,
         athlete1=to_athlete_schema(match.athlete1),
         athlete2=to_athlete_schema(match.athlete2),
         winner_id=match.winner_id,
@@ -36,13 +40,14 @@ def to_match_with_bracket_schema(match: Match) -> MatchWithBracketSchema:
 
 
 def to_bracket_match_schema(bracket_match: BracketMatch, main_rounds: int) -> BracketMatchSchema:
-    round_type = classify_bracket_match(
-        round_number=bracket_match.round_number,
-        position=bracket_match.position,
-        main_rounds=main_rounds,
-    ).round_type
-
     match = bracket_match.match
+    round_type = match.round_type
+    if round_type is None:
+        round_type = classify_bracket_match(
+            round_number=bracket_match.round_number,
+            position=bracket_match.position,
+            main_rounds=main_rounds,
+        ).round_type
     return BracketMatchSchema(
         id=bracket_match.id,
         external_id=bracket_match.external_id,
@@ -53,6 +58,9 @@ def to_bracket_match_schema(bracket_match: BracketMatch, main_rounds: int) -> Br
             id=match.id,
             external_id=match.external_id,
             round_type=round_type,
+            stage=match.stage,
+            repechage_side=match.repechage_side,
+            repechage_step=match.repechage_step,
             athlete1=to_athlete_schema(match.athlete1),
             athlete2=to_athlete_schema(match.athlete2),
             winner_id=match.winner_id,

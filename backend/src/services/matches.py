@@ -3,11 +3,13 @@ from uuid import uuid4
 
 from champion_domain import (
     FinishedMainMatch,
-    build_repechage_plan,
+    ProgressionAction,
     classify_bracket_match,
     compute_main_rounds,
-    compute_next_match_target,
-    is_bracket_finished,
+    decide_finish_flow_post,
+    decide_finish_flow_runtime,
+    plan_repechage_generation,
+    should_generate_repechage,
 )
 from fastapi import HTTPException
 from sqlalchemy import func, select
@@ -24,6 +26,66 @@ from src.services.outbox import (
     create_match_start_outbox,
 )
 from src.transport.mappers import to_match_with_bracket_schema
+
+
+async def _load_match_by_external_id(db: AsyncSession, match_id: str) -> Match | None:
+    result = await db.execute(select(Match).where(Match.external_id == match_id))
+    return result.scalar_one_or_none()
+
+
+async def _load_match_by_external_id_or_404(db: AsyncSession, match_id: str) -> Match:
+    match = await _load_match_by_external_id(db, match_id)
+    if match is None:
+        raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
+    return match
+
+
+async def _apply_winner_to_next_match(
+    db: AsyncSession,
+    bm: BracketMatch,
+    winner_id: int,
+    action: ProgressionAction,
+) -> None:
+    if action.kind == "repechage":
+        if action.repechage_round_number is None or action.repechage_position is None:
+            return
+        next_bm = (
+            await db.execute(
+                select(BracketMatch).where(
+                    BracketMatch.bracket_id == bm.bracket_id,
+                    BracketMatch.round_number == action.repechage_round_number,
+                    BracketMatch.position == action.repechage_position,
+                )
+            )
+        ).scalar_one_or_none()
+        if next_bm is None:
+            return
+        next_match = await db.get(Match, next_bm.match_id)
+        if next_match is not None:
+            next_match.athlete1_id = winner_id
+        return
+
+    if action.kind == "main":
+        if action.main_round_number is None or action.main_position is None:
+            return
+        next_bm = (
+            await db.execute(
+                select(BracketMatch).where(
+                    BracketMatch.bracket_id == bm.bracket_id,
+                    BracketMatch.round_number == action.main_round_number,
+                    BracketMatch.position == action.main_position,
+                )
+            )
+        ).scalar_one_or_none()
+        if next_bm is None:
+            return
+        next_match = await db.get(Match, next_bm.match_id)
+        if next_match is None or next_match.stage != "main":
+            return
+        if action.slot == 1:
+            next_match.athlete1_id = winner_id
+        else:
+            next_match.athlete2_id = winner_id
 
 
 async def _get_bracket_for_match(match_id: int, db: AsyncSession) -> Bracket | None:
@@ -47,23 +109,21 @@ async def _get_main_rounds_count(bracket_id: int, db: AsyncSession) -> int:
 
 async def _ensure_repechage_generated(bracket_id: int, db: AsyncSession) -> bool:
     bracket = await db.get(Bracket, bracket_id)
-    if bracket is None or bracket.type != "single_elimination":
+    if bracket is None:
         return False
 
     main_rounds = await _get_main_rounds_count(bracket_id, db)
-    if main_rounds < 2:
-        return False
 
-    repechage_exists = await db.scalar(
-        select(func.count())
-        .select_from(BracketMatch)
-        .where(
-            BracketMatch.bracket_id == bracket_id,
-            BracketMatch.round_number > main_rounds,
+    has_repechage_matches = bool(
+        await db.scalar(
+            select(func.count())
+            .select_from(BracketMatch)
+            .where(
+                BracketMatch.bracket_id == bracket_id,
+                BracketMatch.round_number > main_rounds,
+            )
         )
     )
-    if repechage_exists:
-        return False
 
     final_bm = (
         await db.execute(
@@ -78,7 +138,15 @@ async def _ensure_repechage_generated(bracket_id: int, db: AsyncSession) -> bool
         return False
 
     final_match = await db.get(Match, final_bm.match_id)
-    if final_match is None or final_match.athlete1_id is None or final_match.athlete2_id is None:
+    finalist_a_id = final_match.athlete1_id if final_match is not None else None
+    finalist_b_id = final_match.athlete2_id if final_match is not None else None
+    if not should_generate_repechage(
+        bracket_type=bracket.type,
+        main_rounds=main_rounds,
+        has_repechage_matches=has_repechage_matches,
+        finalist_a_id=finalist_a_id,
+        finalist_b_id=finalist_b_id,
+    ):
         return False
 
     finished_main_rows = (
@@ -108,9 +176,9 @@ async def _ensure_repechage_generated(bracket_id: int, db: AsyncSession) -> bool
     )
     base_round = int(max_round or main_rounds) + 1
 
-    plans = build_repechage_plan(
-        finalist_a_id=final_match.athlete1_id,
-        finalist_b_id=final_match.athlete2_id,
+    generation = plan_repechage_generation(
+        finalist_a_id=finalist_a_id,
+        finalist_b_id=finalist_b_id,
         finished_main_matches=finished_main_matches,
         base_round=base_round,
     )
@@ -119,21 +187,21 @@ async def _ensure_repechage_generated(bracket_id: int, db: AsyncSession) -> bool
         bracket_id,
         main_rounds,
         len(finished_main_matches),
-        len(plans),
+        len(generation.plans),
     )
 
-    if not plans:
+    if not generation.plans:
         return False
 
-    max_step_by_side: dict[str, int] = {}
-    for plan in plans:
-        max_step_by_side[plan.side] = max(max_step_by_side.get(plan.side, 0), plan.step)
-
-    for plan in plans:
+    for plan in generation.plans:
         rep_match = Match(
             external_id=str(uuid4()),
             athlete1_id=plan.athlete1_id,
             athlete2_id=plan.athlete2_id,
+            round_type="round",
+            stage="repechage",
+            repechage_side=plan.side,
+            repechage_step=plan.step,
             status="not_started",
         )
         db.add(rep_match)
@@ -145,7 +213,7 @@ async def _ensure_repechage_generated(bracket_id: int, db: AsyncSession) -> bool
                 round_number=plan.round_number,
                 position=plan.position,
                 match_id=rep_match.id,
-                next_slot=1 if plan.step < max_step_by_side.get(plan.side, plan.step) else None,
+                next_slot=1 if plan.step < generation.max_step_by_side.get(plan.side, plan.step) else None,
             )
         )
     return True
@@ -177,11 +245,7 @@ async def get_match(match_id: str, db: AsyncSession) -> MatchWithBracketSchema:
 
 
 async def start_match(match_id: str, db: AsyncSession) -> dict[str, str]:
-    result = await db.execute(select(Match).where(Match.external_id == match_id))
-    match = result.scalar_one_or_none()
-
-    if match is None:
-        raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
+    match = await _load_match_by_external_id_or_404(db, match_id)
 
     if match.status == "started":
         raise HTTPException(status_code=400, detail=f"Match {match_id} is already in progress")
@@ -210,11 +274,7 @@ async def start_match(match_id: str, db: AsyncSession) -> dict[str, str]:
 
 
 async def finish_match(match_id: str, finish_data: FinishMatchSchema, db: AsyncSession) -> dict[str, str]:
-    result = await db.execute(select(Match).where(Match.external_id == match_id))
-    match = result.scalar_one_or_none()
-
-    if match is None:
-        raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
+    match = await _load_match_by_external_id_or_404(db, match_id)
 
     if match.status == "finished":
         raise HTTPException(status_code=400, detail=f"Match {match_id} is already finished")
@@ -255,60 +315,34 @@ async def finish_match(match_id: str, finish_data: FinishMatchSchema, db: AsyncS
             position=bm.position,
             main_rounds=main_rounds,
         )
-        is_repechage_match = classification.is_repechage
+        stage = match.stage or ("repechage" if classification.is_repechage else "main")
+        is_repechage_match = stage == "repechage"
+        repechage_side = match.repechage_side or classification.repechage_side
+        repechage_step = match.repechage_step if match.repechage_step is not None else classification.repechage_step
 
-        if is_repechage_match:
-            target = compute_next_match_target(
-                stage="repechage",
-                current_round_number=bm.round_number,
-                current_position=bm.position,
-                explicit_next_slot=None,
-                repechage_side=classification.repechage_side,
-                repechage_step=classification.repechage_step,
+        runtime = decide_finish_flow_runtime(
+            origin="local",
+            stage=stage,
+            current_round_number=bm.round_number,
+            current_position=bm.position,
+            explicit_next_slot=bm.next_slot,
+            repechage_side=repechage_side,
+            repechage_step=repechage_step,
+            allow_implicit_main_slot=False,
+            main_rounds=main_rounds,
+        )
+        action = runtime.progression_action
+        if action is not None:
+            await _apply_winner_to_next_match(
+                db,
+                bm,
+                match.winner_id,
+                action,
             )
-            if target is not None:
-                next_round = main_rounds + int(target.repechage_step or 0)
-                next_bm = (
-                    await db.execute(
-                        select(BracketMatch).where(
-                            BracketMatch.bracket_id == bm.bracket_id,
-                            BracketMatch.round_number == next_round,
-                            BracketMatch.position == bm.position,
-                        )
-                    )
-                ).scalar_one_or_none()
-                if next_bm is not None:
-                    next_match = await db.get(Match, next_bm.match_id)
-                    if next_match is not None:
-                        next_match.athlete1_id = match.winner_id
-        else:
-            target = compute_next_match_target(
-                stage="main",
-                current_round_number=bm.round_number,
-                current_position=bm.position,
-                explicit_next_slot=None,
-                allow_implicit_main_slot=True,
-            )
-            if target is not None:
-                next_bm_result = await db.execute(
-                    select(BracketMatch).where(
-                        BracketMatch.bracket_id == bm.bracket_id,
-                        BracketMatch.round_number == target.round_number,
-                        BracketMatch.position == target.position,
-                    )
-                )
-                next_bm = next_bm_result.scalar_one_or_none()
 
-                if next_bm:
-                    next_match = await db.get(Match, next_bm.match_id)
-                    if next_match:
-                        if target.slot == 1:
-                            next_match.athlete1_id = match.winner_id
-                        else:
-                            next_match.athlete2_id = match.winner_id
-            generated = await _ensure_repechage_generated(bm.bracket_id, db)
-            if generated:
-                needs_structure_publish = True
+        generated_repechage = False
+        if runtime.attempt_generate_repechage:
+            generated_repechage = await _ensure_repechage_generated(bm.bracket_id, db)
 
         if bracket is not None:
             total_matches = await db.scalar(
@@ -320,7 +354,15 @@ async def finish_match(match_id: str, finish_data: FinishMatchSchema, db: AsyncS
                 .join(BracketMatch, BracketMatch.match_id == Match.id)
                 .where(BracketMatch.bracket_id == bm.bracket_id, Match.status == "finished")
             )
-            if is_bracket_finished(total_matches, finished_matches):
+            post = decide_finish_flow_post(
+                is_repechage_match=is_repechage_match,
+                generated_repechage=generated_repechage,
+                total_matches=total_matches,
+                finished_matches=finished_matches,
+                current_bracket_status=bracket.status,
+            )
+            needs_structure_publish = post.publish_structure
+            if post.completion.should_finish_bracket:
                 bracket.status = "finished"
                 bracket.state = "finished"
 
@@ -343,11 +385,7 @@ async def finish_match(match_id: str, finish_data: FinishMatchSchema, db: AsyncS
 
 
 async def update_match_scores(match_id: str, scores_data: UpdateMatchScoresSchema, db: AsyncSession) -> dict[str, str]:
-    result = await db.execute(select(Match).where(Match.external_id == match_id))
-    match = result.scalar_one_or_none()
-
-    if match is None:
-        raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
+    match = await _load_match_by_external_id_or_404(db, match_id)
 
     if match.status != "started":
         raise HTTPException(status_code=400, detail=f"Cannot update scores for not started match {match_id}")

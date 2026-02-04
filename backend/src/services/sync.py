@@ -122,6 +122,10 @@ async def _upsert_match(
         match.winner_id = winner_local_id
         match.score_athlete1 = match_data.get("score_athlete1")
         match.score_athlete2 = match_data.get("score_athlete2")
+        match.round_type = match_data.get("round_type")
+        match.stage = str(match_data.get("stage") or "main")
+        match.repechage_side = match_data.get("repechage_side")
+        match.repechage_step = match_data.get("repechage_step")
         match.status = match_data["status"]
         match.started_at = parse_datetime_utc(match_data.get("started_at"))
         match.ended_at = parse_datetime_utc(match_data.get("ended_at"))
@@ -133,6 +137,10 @@ async def _upsert_match(
             winner_id=winner_local_id,
             score_athlete1=match_data.get("score_athlete1"),
             score_athlete2=match_data.get("score_athlete2"),
+            round_type=match_data.get("round_type"),
+            stage=str(match_data.get("stage") or "main"),
+            repechage_side=match_data.get("repechage_side"),
+            repechage_step=match_data.get("repechage_step"),
             status=match_data["status"],
             started_at=parse_datetime_utc(match_data.get("started_at")),
             ended_at=parse_datetime_utc(match_data.get("ended_at")),
@@ -325,7 +333,15 @@ async def sync_tournament(tournament_id: int, db: AsyncSession, force: bool = Fa
             incoming_bm_external_ids: set[str] = set()
             for bm in b["matches"]:
                 incoming_bm_external_ids.add(bm["id"])
-                match_data = bm["match"]
+                match_data = dict(bm["match"])
+                if "round_type" not in match_data:
+                    match_data["round_type"] = bm.get("round_type")
+                if "stage" not in match_data:
+                    match_data["stage"] = bm.get("stage")
+                if "repechage_side" not in match_data:
+                    match_data["repechage_side"] = bm.get("repechage_side")
+                if "repechage_step" not in match_data:
+                    match_data["repechage_step"] = bm.get("repechage_step")
 
                 athlete1 = await _upsert_athlete_from_payload(db, match_data.get("athlete1"))
                 athlete2 = await _upsert_athlete_from_payload(db, match_data.get("athlete2"))
