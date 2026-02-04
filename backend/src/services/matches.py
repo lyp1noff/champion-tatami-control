@@ -1,8 +1,14 @@
-import math
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from champion_domain import FinishedMainMatch, build_repechage_plan, compute_next_match_target, is_bracket_finished
+from champion_domain import (
+    FinishedMainMatch,
+    build_repechage_plan,
+    classify_bracket_match,
+    compute_main_rounds,
+    compute_next_match_target,
+    is_bracket_finished,
+)
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +23,7 @@ from src.services.outbox import (
     create_match_scores_outbox,
     create_match_start_outbox,
 )
-from src.services.serialize import serialize_match_with_bracket
+from src.transport.mappers import to_match_with_bracket_schema
 
 
 async def _get_bracket_for_match(match_id: int, db: AsyncSession) -> Bracket | None:
@@ -35,9 +41,8 @@ async def _get_main_rounds_count(bracket_id: int, db: AsyncSession) -> int:
         .select_from(BracketParticipant)
         .where(BracketParticipant.bracket_id == bracket_id, BracketParticipant.athlete_id.is_not(None))
     )
-    if participants_count is None or participants_count < 2:
-        return 0
-    return int(math.ceil(math.log2(participants_count)))
+    count = int(participants_count) if participants_count is not None else None
+    return int(compute_main_rounds(count))
 
 
 async def _ensure_repechage_generated(bracket_id: int, db: AsyncSession) -> bool:
@@ -168,7 +173,7 @@ async def get_match(match_id: str, db: AsyncSession) -> MatchWithBracketSchema:
     match = result.scalar_one_or_none()
     if match is None:
         raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
-    return serialize_match_with_bracket(match)
+    return to_match_with_bracket_schema(match)
 
 
 async def start_match(match_id: str, db: AsyncSession) -> dict[str, str]:
@@ -245,18 +250,21 @@ async def finish_match(match_id: str, finish_data: FinishMatchSchema, db: AsyncS
 
     if bm:
         main_rounds = await _get_main_rounds_count(bm.bracket_id, db)
-        is_repechage_match = main_rounds > 0 and bm.round_number > main_rounds
+        classification = classify_bracket_match(
+            round_number=bm.round_number,
+            position=bm.position,
+            main_rounds=main_rounds,
+        )
+        is_repechage_match = classification.is_repechage
 
         if is_repechage_match:
-            side = "A" if bm.position == 1 else "B"
-            current_step = bm.round_number - main_rounds
             target = compute_next_match_target(
                 stage="repechage",
                 current_round_number=bm.round_number,
                 current_position=bm.position,
                 explicit_next_slot=None,
-                repechage_side=side,
-                repechage_step=current_step,
+                repechage_side=classification.repechage_side,
+                repechage_step=classification.repechage_step,
             )
             if target is not None:
                 next_round = main_rounds + int(target.repechage_step or 0)
