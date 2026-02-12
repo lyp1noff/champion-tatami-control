@@ -2,9 +2,11 @@ package http
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"outbox-worker/internal/logger"
 
@@ -17,6 +19,16 @@ type HTTPClient struct {
 	client *http.Client
 	token  string
 	logger *logger.Logger
+}
+
+type syncConflict struct {
+	Reason string `json:"reason"`
+}
+
+type syncCommandsResponse struct {
+	Accepted   []int          `json:"accepted"`
+	Duplicates []int          `json:"duplicates"`
+	Conflicts  []syncConflict `json:"conflicts"`
 }
 
 // NewHTTPClient creates a new HTTP client instance
@@ -79,14 +91,37 @@ func (c *HTTPClient) SendRequest(item database.OutboxItem) (bool, error) {
 	defer resp.Body.Close()
 
 	status := resp.StatusCode
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyText := strings.TrimSpace(string(bodyBytes))
 
 	if status >= 200 && status < 300 {
+		if strings.HasSuffix(item.Endpoint, "/sync/commands") && len(bodyBytes) > 0 {
+			var syncResp syncCommandsResponse
+			if err := json.Unmarshal(bodyBytes, &syncResp); err == nil {
+				if len(syncResp.Conflicts) > 0 {
+					reason := syncResp.Conflicts[0].Reason
+					if reason == "out_of_order" {
+						return true, fmt.Errorf("sync conflict (retryable): %s", reason)
+					}
+					return false, fmt.Errorf("sync conflict (non-retryable): %s", reason)
+				}
+				if len(syncResp.Accepted) == 0 && len(syncResp.Duplicates) == 0 {
+					return true, fmt.Errorf("sync response has no accepted/duplicates")
+				}
+			}
+		}
 		return false, nil
 	}
 
 	if shouldRetry(status) {
+		if bodyText != "" {
+			return true, fmt.Errorf("retryable status %d: %s", status, bodyText)
+		}
 		return true, fmt.Errorf("retryable status %d", status)
 	}
 
+	if bodyText != "" {
+		return false, fmt.Errorf("non-retryable status %d: %s", status, bodyText)
+	}
 	return false, fmt.Errorf("non-retryable status %d", status)
 }

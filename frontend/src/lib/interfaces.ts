@@ -71,7 +71,7 @@ export interface Bracket {
   category: string;
   type: string;
   start_time?: string;
-  day: number;
+  day?: number;
   tatami?: number;
   group_id?: number;
   display_name?: string;
@@ -116,6 +116,7 @@ export interface TatamisResponse {
 
 export interface SyncTournamentResponse {
   status: string;
+  message?: string;
 }
 
 // export interface OutboxStatusResponse {

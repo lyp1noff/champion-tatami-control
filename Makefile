@@ -8,6 +8,9 @@ back-lint:
 back-test:
 	cd backend && poetry run pytest
 
+back-domain-update:
+	cd backend && poetry update champion-domain
+
 back-dev:
 	cd backend && poetry install && poetry run uvicorn src.main:app --reload --host 0.0.0.0 --port 8001
 

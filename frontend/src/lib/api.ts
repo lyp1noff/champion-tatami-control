@@ -105,8 +105,9 @@ export async function getTatamis(tournamentId: number): Promise<TatamisResponse>
   return { tatamis: data.tatamis || [] };
 }
 
-export async function syncTournament(tournamentId: number): Promise<SyncTournamentResponse> {
-  const response = await fetch(`${BACKEND_URL}/tournaments/${tournamentId}/sync`, {
+export async function syncTournament(tournamentId: number, force = false): Promise<SyncTournamentResponse> {
+  const suffix = force ? "?force=true" : "";
+  const response = await fetch(`${BACKEND_URL}/tournaments/${tournamentId}/sync${suffix}`, {
     method: "POST",
   });
   if (!response.ok) {
